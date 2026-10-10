@@ -1,0 +1,1869 @@
+<title>Bodenleger Live</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: full-bleed 3D diorama of two job sites; the HUD floats over it on desktop and stacks under it on phones. */
+:root {
+  --bg: #DDE3E7;
+  --bg2: #F1F4F6;
+  --panel: rgba(255, 255, 255, .9);
+  --panel-solid: #FFFFFF;
+  --ink: #16202A;
+  --muted: #5A6772;
+  --line: rgba(22, 32, 42, .12);
+  --chip: #EDF1F4;
+  --accent: #D9530F;      /* hi-vis orange */
+  --accent-ink: #FFFFFF;
+  --resin: #B87A12;       /* primer amber */
+  --ok: #1D8A4B;
+  --warn: #B87005;
+  --crit: #C8392C;
+  --shadow: 0 8px 28px rgba(22, 32, 42, .12), 0 1px 3px rgba(22, 32, 42, .08);
+  --f-display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+  --f-body: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0D1216; --bg2: #18212A; --panel: rgba(20, 27, 34, .92); --panel-solid: #151C23;
+    --ink: #E4E9ED; --muted: #94A1AC; --line: rgba(228, 233, 237, .13); --chip: #222C35;
+    --accent: #F2763A; --accent-ink: #1A0E06; --resin: #E2A646;
+    --ok: #3CBB72; --warn: #E4A43C; --crit: #F0624F;
+    --shadow: 0 10px 30px rgba(0, 0, 0, .45), 0 1px 3px rgba(0, 0, 0, .4);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0D1216; --bg2: #18212A; --panel: rgba(20, 27, 34, .92); --panel-solid: #151C23;
+  --ink: #E4E9ED; --muted: #94A1AC; --line: rgba(228, 233, 237, .13); --chip: #222C35;
+  --accent: #F2763A; --accent-ink: #1A0E06; --resin: #E2A646;
+  --ok: #3CBB72; --warn: #E4A43C; --crit: #F0624F;
+  --shadow: 0 10px 30px rgba(0, 0, 0, .45), 0 1px 3px rgba(0, 0, 0, .4);
+  color-scheme: dark;
+}
+
+html, body { height: 100%; }
+body {
+  background: var(--bg) radial-gradient(130% 90% at 45% 30%, var(--bg2), var(--bg));
+  color: var(--ink); font-family: var(--f-body); font-size: 14px; line-height: 1.4; overflow: hidden;
+}
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.num { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+.lbl { font-family: var(--f-display); font-weight: 600; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+
+.app { height: 100%; display: grid; grid-template-rows: auto 1fr; grid-template-columns: minmax(0, 1fr); }
+
+/* ---------- top bar ---------- */
+.top {
+  display: flex; align-items: center; gap: 12px 18px; flex-wrap: wrap;
+  padding: 10px 16px; background: var(--panel-solid); border-bottom: 1px solid var(--line); position: relative; z-index: 5;
+}
+.brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.brand svg { width: 34px; height: 34px; flex: none; }
+.brand strong { display: block; font-family: var(--f-display); font-size: 22px; font-weight: 700; letter-spacing: .01em; line-height: 1; }
+.brand span { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+.sites { display: flex; gap: 6px; background: var(--chip); padding: 4px; border-radius: 12px; }
+.sites button {
+  border: 0; background: transparent; border-radius: 9px; padding: 5px 12px; text-align: left; line-height: 1.15;
+}
+.sites button b { display: block; font-family: var(--f-display); font-size: 15px; font-weight: 600; }
+.sites button span { display: block; font-size: 11.5px; color: var(--muted); }
+.sites i { font-style: normal; }
+.sites button[aria-selected="true"] { background: var(--panel-solid); box-shadow: var(--shadow); }
+.sites button[aria-selected="true"] b { color: var(--accent); }
+.clock { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+.clock .live { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ok) 22%, transparent); }
+.clock .live.paused { background: var(--muted); box-shadow: none; }
+.clock #clock { font-family: var(--f-mono); font-size: 15px; font-weight: 500; }
+.clock .tl { font-size: 11.5px; color: var(--muted); }
+.speed { display: flex; background: var(--chip); border-radius: 10px; padding: 3px; }
+.speed button { border: 0; background: transparent; border-radius: 7px; min-width: 38px; height: 30px; padding: 0 8px; font-family: var(--f-mono); font-size: 13px; }
+.speed button[aria-pressed="true"] { background: var(--ink); color: var(--panel-solid); }
+.speed svg { width: 12px; height: 12px; display: block; margin: auto; fill: currentColor; }
+
+/* ---------- main ---------- */
+.main { position: relative; min-height: 0; min-width: 0; }
+.stage { position: absolute; inset: 0; overflow: hidden; }
+#gl { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+#gl:active { cursor: grabbing; }
+
+.kpis { position: absolute; top: 16px; left: 16px; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; width: calc(100% - 550px); z-index: 1; }
+.kpi { background: var(--panel); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid var(--line); border-radius: 12px; padding: 9px 12px; box-shadow: var(--shadow); min-width: 0; }
+.kpi .v { font-family: var(--f-display); font-size: 21px; font-weight: 600; line-height: 1.1; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kpi .v small { font-size: 13px; color: var(--muted); font-weight: 500; }
+.kpi .s { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bar { height: 5px; background: var(--chip); border-radius: 5px; overflow: hidden; margin-top: 6px; }
+.bar i { display: block; height: 100%; width: 0; background: var(--accent); border-radius: 5px; transition: width .3s; }
+
+.chip { display: inline-flex; align-items: center; gap: 5px; padding: 1px 8px; border-radius: 99px; font-size: 11.5px; font-weight: 600; background: var(--chip); color: var(--muted); white-space: nowrap; }
+.chip.ok { color: var(--ok); background: color-mix(in srgb, var(--ok) 14%, transparent); }
+.chip.warn { color: var(--warn); background: color-mix(in srgb, var(--warn) 16%, transparent); }
+.chip.crit { color: var(--crit); background: color-mix(in srgb, var(--crit) 15%, transparent); }
+.chip.acc { color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+
+.view-tools { position: absolute; right: 404px; top: 16px; display: flex; flex-direction: column; gap: 8px; }
+.tool-btn { display: flex; align-items: center; gap: 6px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px; box-shadow: var(--shadow); font-size: 12.5px; font-weight: 600; }
+.tool-btn[aria-pressed="true"] { color: var(--accent); }
+
+.banner { position: absolute; left: 50%; top: 96px; transform: translateX(-50%); background: var(--ink); color: var(--panel-solid); border-radius: 99px; padding: 6px 16px; font-weight: 600; font-size: 13px; box-shadow: var(--shadow); white-space: nowrap; max-width: calc(100% - 32px); overflow: hidden; text-overflow: ellipsis; }
+
+.call {
+  position: absolute; left: 16px; top: 112px; width: min(330px, calc(100% - 32px)); background: var(--panel-solid); border: 1px solid var(--line);
+  border-radius: 14px; box-shadow: var(--shadow); padding: 10px 12px; display: grid; grid-template-columns: 34px 1fr; gap: 4px 10px; animation: drop .35s ease-out;
+}
+.call .av { grid-row: span 3; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
+.call .av svg { width: 17px; height: 17px; fill: currentColor; }
+.call .who { font-size: 12px; color: var(--muted); }
+.call .who b { color: var(--ink); }
+.call .txt { font-size: 13.5px; }
+.call .tr { font-size: 12.5px; color: var(--muted); font-style: italic; }
+@keyframes drop { from { transform: translateY(-8px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* speech bubbles */
+.bubbles { position: absolute; inset: 0; pointer-events: none; }
+.bubble {
+  position: absolute; left: 0; top: 0; max-width: 236px; min-width: 120px; background: var(--panel-solid); color: var(--ink);
+  border-radius: 12px; padding: 7px 10px 8px; box-shadow: var(--shadow); border: 1px solid var(--line); font-size: 13px; line-height: 1.3;
+  transform-origin: 50% 100%; will-change: transform; animation: pop .25s ease-out;
+}
+.bubble::after { content: ""; position: absolute; left: 50%; bottom: -6px; width: 12px; height: 12px; background: var(--panel-solid); border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); transform: translateX(-50%) rotate(45deg); }
+.bubble .h { display: flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 700; margin-bottom: 2px; }
+.bubble .h .d { width: 9px; height: 9px; border-radius: 50%; border: 1px solid rgba(0,0,0,.25); }
+.bubble .lang { font-family: var(--f-mono); font-size: 10px; font-weight: 500; padding: 0 5px; border-radius: 4px; background: var(--chip); color: var(--muted); }
+.bubble .tr { display: block; margin-top: 3px; padding-top: 3px; border-top: 1px dashed var(--line); color: var(--muted); font-size: 12px; font-style: italic; }
+.no-tr .bubble .tr, .no-tr .call .tr { display: none; }
+@keyframes pop { from { opacity: 0; scale: .9; } to { opacity: 1; scale: 1; } }
+
+.summary { position: absolute; inset: 0; display: grid; place-items: center; background: color-mix(in srgb, var(--bg) 55%, transparent); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); padding: 16px; z-index: 4; }
+.summary .card { background: var(--panel-solid); border-radius: 18px; box-shadow: var(--shadow); padding: 22px; width: min(560px, 100%); border: 1px solid var(--line); }
+.summary h2 { font-family: var(--f-display); font-size: 30px; margin: 0 0 4px; text-wrap: balance; }
+.summary p { margin: 0 0 14px; color: var(--muted); }
+.summary .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.summary .cols > div { background: var(--chip); border-radius: 12px; padding: 12px; min-width: 0; }
+.summary .cols b { font-family: var(--f-display); font-size: 17px; }
+.summary dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; margin: 8px 0 0; font-size: 13px; }
+.summary dt { color: var(--muted); }
+.summary dd { margin: 0; text-align: right; }
+.summary .actions { display: flex; gap: 10px; margin-top: 16px; align-items: center; flex-wrap: wrap; }
+.btn { border: 0; border-radius: 10px; padding: 9px 16px; font-weight: 700; background: var(--accent); color: var(--accent-ink); }
+.btn.ghost { background: var(--chip); color: var(--ink); }
+
+/* phase stepper */
+.steps {
+  position: absolute; left: 16px; right: 404px; bottom: 16px; background: var(--panel); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); padding: 10px 14px 12px; min-width: 0;
+}
+.steps .head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 8px; }
+.steps .head b { font-family: var(--f-display); font-size: 15px; font-weight: 600; }
+.steps ol { list-style: none; margin: 0; padding: 0; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(84px, 1fr); overflow-x: auto; scrollbar-width: thin; }
+.steps li { position: relative; min-width: 0; }
+.steps li::before { content: ""; position: absolute; top: 10px; left: 50%; right: -50%; height: 2px; background: var(--line); }
+.steps li:last-child::before { display: none; }
+.steps li.done::before { background: var(--accent); }
+.steps button { border: 0; background: none; width: 100%; padding: 0 4px; display: flex; flex-direction: column; align-items: center; text-align: center; position: relative; }
+.steps .dot { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--line); background: var(--panel-solid); display: grid; place-items: center; font-family: var(--f-mono); font-size: 10.5px; color: var(--muted); z-index: 1; }
+.steps li.done .dot { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.steps li.now .dot { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 20%, transparent); }
+.steps .nm { font-size: 12px; font-weight: 600; margin-top: 4px; line-height: 1.15; }
+.steps .tm { font-family: var(--f-mono); font-size: 10.5px; color: var(--muted); }
+
+/* dock */
+.dock {
+  position: absolute; top: 16px; right: 16px; bottom: 16px; width: 372px; display: flex; flex-direction: column; background: var(--panel);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); overflow: hidden;
+}
+.tabs { display: grid; grid-template-columns: repeat(4, 1fr); border-bottom: 1px solid var(--line); flex: none; }
+.tabs button { border: 0; background: none; padding: 11px 4px 10px; font-family: var(--f-display); font-weight: 600; font-size: 14.5px; color: var(--muted); border-bottom: 2px solid transparent; }
+.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+.panel { padding: 14px; overflow-y: auto; flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 14px; }
+.sec { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.sec > .lbl { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+
+.who-card { border: 1px solid var(--line); border-radius: 14px; padding: 12px; background: var(--panel-solid); display: grid; gap: 8px; }
+.who-card .top-row { display: flex; align-items: center; gap: 10px; }
+.helm { width: 30px; height: 30px; border-radius: 50%; flex: none; border: 2px solid rgba(0,0,0,.18); position: relative; }
+.helm::after { content: ""; position: absolute; left: -3px; right: -3px; bottom: 6px; height: 3px; border-radius: 2px; background: inherit; filter: brightness(.88); }
+.who-card h3 { margin: 0; font-family: var(--f-display); font-size: 20px; line-height: 1; }
+.who-card .role { color: var(--muted); font-size: 12.5px; }
+.kv { display: grid; grid-template-columns: 92px 1fr; gap: 4px 10px; font-size: 13px; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.follow { justify-self: start; }
+
+.rows { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--panel-solid); }
+.row { display: grid; grid-template-columns: 22px 1fr auto; align-items: center; gap: 10px; padding: 8px 10px; border: 0; border-top: 1px solid var(--line); background: none; text-align: left; width: 100%; }
+.row:first-child { border-top: 0; }
+.row:hover { background: var(--chip); }
+.row[aria-current="true"] { background: color-mix(in srgb, var(--accent) 9%, transparent); }
+.row .helm { width: 20px; height: 20px; }
+.row .helm::after { bottom: 3px; height: 2px; }
+.row .t { min-width: 0; }
+.row .t b { font-weight: 700; }
+.row .t .sub { display: block; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.grp { font-size: 12px; color: var(--muted); padding: 6px 10px; background: var(--chip); font-weight: 600; display: flex; justify-content: space-between; gap: 8px; }
+.van-ico { width: 22px; height: 14px; }
+
+.cond { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.cond > div { background: var(--panel-solid); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; min-width: 0; }
+.cond .v { font-family: var(--f-mono); font-size: 16px; font-weight: 500; }
+.cond .wide { grid-column: span 2; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.rules { font-size: 12.5px; color: var(--muted); margin: 0; padding-left: 16px; display: grid; gap: 2px; }
+.list { display: flex; flex-direction: column; gap: 0; border: 1px solid var(--line); border-radius: 12px; background: var(--panel-solid); overflow: hidden; }
+.li { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; padding: 8px 10px; border-top: 1px solid var(--line); font-size: 13px; }
+.li:first-child { border-top: 0; }
+.li .m { color: var(--muted); font-size: 12px; }
+.empty { color: var(--muted); font-size: 13px; padding: 10px; }
+.note { font-size: 12px; color: var(--muted); margin: 0; }
+
+.stack { display: flex; flex-direction: column-reverse; border-radius: 10px; overflow: hidden; border: 1px solid var(--line); }
+.stack > div { display: flex; justify-content: space-between; gap: 10px; padding: 6px 10px; font-size: 12.5px; color: #1d232a; min-height: 30px; align-items: center; }
+.stack > div span:last-child { font-family: var(--f-mono); font-size: 11.5px; white-space: nowrap; }
+.prod .li { grid-template-columns: 1fr auto; }
+.prod .li b { font-weight: 700; }
+.prod .bar { grid-column: span 2; margin-top: 2px; }
+
+.log { display: flex; flex-direction: column; gap: 8px; }
+.log .e { display: grid; grid-template-columns: 52px 1fr; gap: 8px; font-size: 13px; }
+.log .e .tm { font-family: var(--f-mono); font-size: 11px; color: var(--muted); padding-top: 2px; }
+.log .e b { font-weight: 700; }
+.log .e .tr { display: block; color: var(--muted); font-style: italic; font-size: 12px; }
+.log .e .site { font-family: var(--f-mono); font-size: 10px; padding: 0 4px; border-radius: 4px; background: var(--chip); color: var(--muted); margin-right: 4px; }
+.no-tr .log .tr { display: none; }
+
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ---------- phones ---------- */
+@media (max-width: 860px) {
+  body { overflow: auto; }
+  .app { height: auto; min-height: 100%; }
+  .top { padding: 10px 16px; gap: 10px; }
+  .brand span { display: none; }
+  .clock { margin-left: auto; }
+  .clock .tl { display: none; }
+  .sites { order: 5; width: 100%; }
+  .sites button { flex: 1; padding: 5px 8px; }
+  .sites .lg { display: none; }
+  .speed { order: 4; }
+  .main { display: flex; flex-direction: column; }
+  .stage { position: relative; inset: auto; height: 60vh; height: 60svh; min-height: 340px; }
+  .kpis { position: static; margin: 12px 16px 0; width: auto; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kpi { padding: 7px 10px; }
+  .kpi .v { font-size: 18px; }
+  .view-tools { right: 8px; top: auto; bottom: 8px; flex-direction: row; }
+  .banner { top: 8px; font-size: 12px; }
+  .call { top: 8px; left: 8px; width: min(300px, calc(100% - 16px)); }
+  .bubble { max-width: 190px; font-size: 12px; }
+  .steps { position: static; margin: 12px 16px 0; min-width: 0; }
+  .steps ol { min-width: 0; }
+  .dock { position: static; width: auto; margin: 12px 16px 16px; max-height: none; min-width: 0; }
+  .panel { overflow: visible; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bubble, .call { animation: none; }
+  .bar i { transition: none; }
+}
+</style>
+
+<div class="app" id="app">
+  <header class="top">
+    <div class="brand">
+      <svg viewBox="0 0 34 34" aria-hidden="true">
+        <rect x="1" y="1" width="32" height="32" rx="9" fill="var(--ink)"/>
+        <path d="M7 21.5 17 26l10-4.5" fill="none" stroke="var(--accent)" stroke-width="2.4" stroke-linejoin="round"/>
+        <path d="M7 16.5 17 21l10-4.5" fill="none" stroke="var(--panel-solid)" stroke-width="2.4" stroke-linejoin="round" opacity=".55"/>
+        <path d="M17 7 27 11.5 17 16 7 11.5Z" fill="var(--panel-solid)"/>
+      </svg>
+      <div><strong>Bodenleger Live</strong><span>Pavimentos epóxi · 2 obras em simultâneo</span></div>
+    </div>
+    <div class="sites" role="tablist" aria-label="Obra em foco" id="sites">
+      <button role="tab" data-site="A" aria-selected="true"><b>Obra A<i class="lg"> · Armazém</i></b><span><i class="lg">Chefe </i>Jord<i class="lg"> · 4 pessoas</i></span></button>
+      <button role="tab" data-site="B" aria-selected="false"><b>Obra B<i class="lg"> · Garagem</i></b><span><i class="lg">Chefe </i>Thomas<i class="lg"> · 3 pessoas</i></span></button>
+      <button role="tab" data-site="all" aria-selected="false"><b>Ambas</b><span>Vista geral</span></button>
+    </div>
+    <div class="clock">
+      <span class="live" id="live" aria-hidden="true"></span>
+      <span id="clock" class="num" aria-live="off">Seg · 07:00</span>
+      <span class="tl" id="tl">timelapse</span>
+    </div>
+    <div class="speed" role="group" aria-label="Velocidade da simulação" id="speed">
+      <button data-speed="0" aria-pressed="false" aria-label="Pausa"><svg viewBox="0 0 12 12"><rect x="1.5" y="1" width="3" height="10" rx="1"/><rect x="7.5" y="1" width="3" height="10" rx="1"/></svg></button>
+      <button data-speed="0.5" aria-pressed="false">½×</button>
+      <button data-speed="1" aria-pressed="true">1×</button>
+      <button data-speed="3" aria-pressed="false">3×</button>
+    </div>
+  </header>
+
+  <main class="main">
+    <section class="stage" id="stage" aria-label="Vista 3D das obras. Arraste para mover, use a roda ou dois dedos para zoom; toque num operário para ver detalhes.">
+      <canvas id="gl"></canvas>
+      <div class="bubbles" id="bubbles"></div>
+      <div class="view-tools">
+        <button class="tool-btn" id="tr-toggle" aria-pressed="true">Tradução PT</button>
+        <button class="tool-btn" id="recenter">Recentrar</button>
+      </div>
+      <div class="banner" id="banner" hidden></div>
+      <div id="call-slot"></div>
+      <div class="summary" id="summary" hidden></div>
+    </section>
+
+    <div class="kpis" id="kpis">
+        <div class="kpi"><div class="lbl">Fase</div><div class="v" id="k-phase">—</div><div class="bar"><i id="k-phase-bar"></i></div></div>
+        <div class="kpi"><div class="lbl">Área</div><div class="v" id="k-area">—</div><div class="s" id="k-area-s">—</div></div>
+        <div class="kpi"><div class="lbl">Ponto de orvalho</div><div class="v" id="k-dew">—</div><div class="s" id="k-dew-s">—</div></div>
+        <div class="kpi"><div class="lbl">Material aplicado</div><div class="v" id="k-mat">—</div><div class="s" id="k-mat-s">—</div></div>
+      </div>
+    <nav class="steps" aria-label="Fases da obra em foco">
+      <div class="head"><b id="steps-title">Obra A · fases</b><span class="lbl" id="steps-sys">—</span></div>
+      <ol id="steps"></ol>
+    </nav>
+
+    <aside class="dock" aria-label="Painel da obra">
+      <div class="tabs" role="tablist" id="tabs">
+        <button role="tab" data-tab="crew" aria-selected="true">Equipa</button>
+        <button role="tab" data-tab="ctrl" aria-selected="false">Controlo</button>
+        <button role="tab" data-tab="mat" aria-selected="false">Material</button>
+        <button role="tab" data-tab="log" aria-selected="false">Registo</button>
+      </div>
+      <div class="panel" id="tab-crew" role="tabpanel"></div>
+      <div class="panel" id="tab-ctrl" role="tabpanel" hidden></div>
+      <div class="panel" id="tab-mat" role="tabpanel" hidden></div>
+      <div class="panel" id="tab-log" role="tabpanel" hidden></div>
+    </aside>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/environments/RoomEnvironment.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/geometries/RoundedBoxGeometry.js"></script>
+<script>
+'use strict';
+(() => {
+const THREE = window.THREE;
+if (!THREE || !THREE.MapControls) {
+  document.getElementById('stage').insertAdjacentHTML('beforeend',
+    '<div class="summary"><div class="card"><h2>A vista 3D não carregou</h2><p>O motor 3D (three.js) não chegou a carregar. Verifique a ligação à internet e recarregue a página.</p></div></div>');
+  return;
+}
+
+/* =====================================================================
+   Pessoas, frota e escritório. Para trocar equipas, mude o campo "site".
+   ===================================================================== */
+const CREW = [
+  { id: 'jord',    name: 'Jord',    site: 'A', chief: true, role: 'Chefe de equipa',      langs: 'Alemão · italiano',            helmet: '#F4F6F8', skin: '#E2B690' },
+  { id: 'renato',  name: 'Renato',  site: 'A', role: 'Aplicador',                         langs: 'Português · alemão',           helmet: '#F3C431', skin: '#C9956C' },
+  { id: 'marco',   name: 'Marco',   site: 'A', role: 'Máquinas e rolo de picos',          langs: 'Português · alemão básico',    helmet: '#3B7DDB', skin: '#D3A078' },
+  { id: 'arlindo', name: 'Arlindo', site: 'A', role: 'Mistura e material',                langs: 'Português · um pouco de italiano', helmet: '#2EA66C', skin: '#B98460' },
+  { id: 'thomas',  name: 'Thomas',  site: 'B', chief: true, role: 'Chefe de equipa',      langs: 'Português',                    helmet: '#F4F6F8', skin: '#CF9D74' },
+  { id: 'carlos',  name: 'Carlos',  site: 'B', role: 'Aplicador',                         langs: 'Português · alemão',           helmet: '#F3C431', skin: '#C08A63' },
+  { id: 'hugo',    name: 'Hugo',    site: 'B', role: 'Preparação e mistura',              langs: 'Português · um pouco de italiano', helmet: '#2EA66C', skin: '#D9AA82' },
+  { id: 'clientA', name: 'Bauleiter', site: 'A', guest: true, role: 'Cliente · direção de obra', langs: 'Alemão', helmet: '#F4F6F8', skin: '#E6BC98', vest: '#3E5C7A' },
+  { id: 'clientB', name: 'Verwalter', site: 'B', guest: true, role: 'Cliente · administração',   langs: 'Alemão', helmet: '#F4F6F8', skin: '#D8A985', vest: '#56607A' },
+];
+const OFFICE = { name: 'Corinna', role: 'Secretária', where: 'Escritório', langs: 'Alemão' };
+const FLEET = [
+  { id: 1, site: 'A', slot: 0, use: 'Equipa e ferramentas' },
+  { id: 2, site: 'A', slot: 1, use: 'Granalhadora e material' },
+  { id: 3, site: 'B', slot: 0, use: 'Equipa e ferramentas' },
+  { id: 4, site: 'B', slot: 1, use: 'Granalhadora e material' },
+];
+
+/* =====================================================================
+   Utilitários
+   ===================================================================== */
+const $ = (s, r = document) => r.querySelector(s);
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+function rng(seed) {
+  let a = seed >>> 0;
+  return () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+}
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const f1 = n => n.toLocaleString('pt-PT', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const f0 = n => Math.round(n).toLocaleString('pt-PT');
+const DAYS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+const tm = s => { const [d, hm] = s.split(' '); const [h, m] = hm.split(':').map(Number); return (d - 1) * 1440 + h * 60 + m; };
+const hhmm = t => { const m = Math.floor(((t % 1440) + 1440) % 1440); return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); };
+const dayName = t => DAYS[Math.floor(t / 1440) % 7];
+const clockStr = t => `${dayName(t)} · ${hhmm(t)}`;
+// Magnus formula (Sonntag constants), °C
+function dewPoint(T, RH) { const a = 17.62, b = 243.12, g = Math.log(RH / 100) + a * T / (b + T); return b * g / (a - g); }
+
+/* =====================================================================
+   Constantes da simulação
+   ===================================================================== */
+const CELL = 0.5;           // metros por célula do pavimento
+const PX = 8;               // píxeis da textura por célula
+const CS = 1.5;             // escala "maquete" das pessoas e máquinas
+const BASE_RATE = 10;       // minutos simulados por segundo real, durante o trabalho (1×)
+const GAP_RATE = 220;       // noites, cura e fim de semana
+const WET_MIN = 300;        // durante quanto tempo a resina parece molhada
+const B = { BLAST: 1, VAC: 2, REP: 4, PRIM: 8, SAND: 16, COAT: 32, ROLL: 64, QUARTZ: 128, SWEPT: 256, SEAL: 512, WETC: 1024, WETS: 2048 };
+const BITS = [B.BLAST, B.VAC, B.REP, B.PRIM, B.SAND, B.COAT, B.ROLL, B.QUARTZ, B.SWEPT, B.SEAL];
+
+/* =====================================================================
+   Percursos: at(q) devolve a posição; ord(x,z) diz em que fração q
+   o percurso passa por esse ponto (a mesma função pinta o chão).
+   ===================================================================== */
+function serp(x0, z0, x1, z1, lane) {
+  const W = x1 - x0, depth = z1 - z0, n = Math.max(1, Math.round(depth / lane)), lw = depth / n;
+  return {
+    n,
+    at(q) {
+      const f = clamp(q, 0, 1) * n, i = Math.min(n - 1, Math.floor(f)), u = f - i, fwd = i % 2 === 0;
+      return { x: fwd ? x0 + u * W : x1 - u * W, z: z0 + (i + 0.5) * lw, hx: fwd ? 1 : -1, hz: 0, lw };
+    },
+    ord(x, z) {
+      const i = clamp(Math.floor((z - z0) / lw), 0, n - 1), u = clamp((x - x0) / W, 0, 1);
+      return (i + (i % 2 === 0 ? u : 1 - u)) / n;
+    },
+    inside: (x, z) => x >= x0 && x <= x1 && z >= z0 && z <= z1,
+  };
+}
+function perim(x0, z0, x1, z1, m) {
+  const a = x0 + m / 2, b = z0 + m / 2, c = x1 - m / 2, d = z1 - m / 2, L1 = c - a, L2 = d - b, tot = 2 * (L1 + L2);
+  return {
+    at(q) {
+      let s = clamp(q, 0, 1) * tot;
+      if (s < L1) return { x: a + s, z: b, hx: 1, hz: 0 }; s -= L1;
+      if (s < L2) return { x: c, z: b + s, hx: 0, hz: 1 }; s -= L2;
+      if (s < L1) return { x: c - s, z: d, hx: -1, hz: 0 }; s -= L1;
+      return { x: a, z: d - s, hx: 0, hz: -1 };
+    },
+    ord(x, z) {
+      const dl = x - x0, dr = x1 - x, dt = z - z0, db = z1 - z, mn = Math.min(dl, dr, dt, db);
+      let s;
+      if (mn === dt) s = clamp(x - a, 0, L1);
+      else if (mn === dr) s = L1 + clamp(z - b, 0, L2);
+      else if (mn === db) s = L1 + L2 + clamp(c - x, 0, L1);
+      else s = 2 * L1 + L2 + clamp(d - z, 0, L2);
+      return s / tot;
+    },
+    inside: (x, z) => x >= x0 && x <= x1 && z >= z0 && z <= z1 && (x - x0 < m || x1 - x < m || z - z0 < m || z1 - z < m),
+  };
+}
+function polyPath(pts) {
+  const seg = []; let tot = 0;
+  for (let i = 1; i < pts.length; i++) { const l = Math.hypot(pts[i].x - pts[i - 1].x, pts[i].z - pts[i - 1].z); seg.push(l); tot += l; }
+  return {
+    tot,
+    at(q) {
+      let s = clamp(q, 0, 1) * tot;
+      for (let i = 0; i < seg.length; i++) {
+        if (s <= seg[i] || i === seg.length - 1) {
+          const u = seg[i] ? clamp(s / seg[i], 0, 1) : 0, p = pts[i], r = pts[i + 1];
+          return { x: lerp(p.x, r.x, u), z: lerp(p.z, r.z, u), hx: (r.x - p.x) / (seg[i] || 1), hz: (r.z - p.z) / (seg[i] || 1) };
+        }
+        s -= seg[i];
+      }
+      return { x: pts[0].x, z: pts[0].z, hx: 1, hz: 0 };
+    },
+  };
+}
+
+/* =====================================================================
+   Comportamentos: cada um é uma função pura do tempo da fase.
+   ctx = { p: progresso 0..1, t: minutos na fase, ph, S }
+   ===================================================================== */
+const opQ = (ctx, k, lag = 0) => { const op = ctx.ph.ops[k]; return (ctx.p - op.win[0]) / (op.win[1] - op.win[0]) - lag; };
+function follow(k, o) {
+  return ctx => {
+    const op = ctx.ph.ops[k], q = opQ(ctx, k, o.lag || 0), P = op.path.at(clamp(q, 0, 1));
+    let x = P.x, z = P.z;
+    if (o.wiggle) { const w = Math.sin(ctx.t * (o.wf || 2)) * o.wiggle; x += -P.hz * w; z += P.hx * w; }
+    if (o.side) { x += -P.hz * o.side; z += P.hx * o.side; }
+    const working = q >= 0 && q <= 1;
+    const tool = typeof o.tool === 'function' ? o.tool(ctx) : o.tool;
+    return { x, z, face: Math.atan2(P.hx, P.hz), anim: working ? o.anim : 'idle', tool: working ? tool : null,
+      task: working ? (typeof o.task === 'function' ? o.task(ctx) : o.task) : (q < 0 ? 'À espera da vez' : 'Concluído — a apoiar'), emit: working ? o.emit : null };
+  };
+}
+function trace(path, win, o) {
+  return ctx => {
+    const q = (ctx.p - win[0]) / (win[1] - win[0]), P = path.at(clamp(q, 0, 1)), working = q >= 0 && q <= 1;
+    return { x: P.x, z: P.z, face: Math.atan2(P.hx, P.hz), anim: working ? o.anim : 'idle', tool: working ? o.tool : null, task: working ? o.task : 'Concluído — a apoiar', emit: working ? o.emit : null };
+  };
+}
+// visita pontos: anda, e ajoelha/trabalha em cada um
+function visit(pts, o) {
+  return ctx => {
+    const n = pts.length, f = clamp(ctx.p, 0, 0.9999) * n, i = Math.floor(f), u = f - i, wf = o.walk ?? 0.35;
+    const prev = i === 0 ? (o.from ? o.from(ctx) : pts[0]) : pts[i - 1], cur = pts[i];
+    if (u < wf) { const k = u / wf; return { x: lerp(prev.x, cur.x, k), z: lerp(prev.z, cur.z, k), anim: 'walk', tool: o.carry || null, task: o.task }; }
+    return { x: cur.x, z: cur.z, face: cur.face, anim: o.anim, tool: o.tool, task: o.task, emit: o.emit };
+  };
+}
+// vaivém entre o posto de mistura e a frente de trabalho
+function shuttle(k, o) {
+  return ctx => {
+    const st = ctx.S.mixSpot(o.slot || 0), c = (((ctx.t / o.period) + (o.offset || 0)) % 1 + 1) % 1;
+    const op = ctx.ph.ops[k], q = clamp(opQ(ctx, k) + (o.lead || 0.01), 0, 1), P = op.path.at(q);
+    const fr = { x: P.x, z: P.z + (P.lw ? P.lw * 0.5 : 0) + 0.4 };
+    const m = o.mix, w1 = m + 0.16, w2 = w1 + 0.1;
+    if (c < m) return { x: st.x, z: st.z, face: Math.PI, anim: o.mixAnim || 'mix', tool: o.mixAnim === 'idle' ? null : 'mixer', task: o.mixTask };
+    if (c < w1) { const u = (c - m) / 0.16; return { x: lerp(st.x, fr.x, u), z: lerp(st.z, fr.z, u), anim: 'carry', tool: 'bucket', task: 'A levar o balde misturado' }; }
+    if (c < w2) return { x: fr.x, z: fr.z, face: Math.PI, anim: 'pour', tool: 'bucketPour', task: o.pourTask || 'A despejar em linha' };
+    const u = (c - w2) / (1 - w2); return { x: lerp(fr.x, st.x, u), z: lerp(fr.z, st.z, u), anim: 'carry', tool: 'bucket', task: 'De volta ao posto de mistura' };
+  };
+}
+function carryLoop(o) {
+  return ctx => {
+    const a = o.from(ctx.S), b = o.to(ctx.S), c = (((ctx.t / o.period) + (o.offset || 0)) % 1 + 1) % 1;
+    const P = c < 0.5 ? { x: lerp(a.x, b.x, c * 2), z: lerp(a.z, b.z, c * 2) } : { x: lerp(b.x, a.x, (c - 0.5) * 2), z: lerp(b.z, a.z, (c - 0.5) * 2) };
+    return { x: P.x, z: P.z, anim: 'carry', tool: c < 0.5 ? o.tool || 'box' : null, task: o.task };
+  };
+}
+function stay(fn, o) { return ctx => { const p = fn(ctx.S); return { x: p.x, z: p.z, face: p.face ?? o.face, anim: o.anim, tool: o.tool, task: o.task, emit: o.emit }; }; }
+function wander(o) {
+  return ctx => {
+    const S = ctx.S, k = o.k || 0.07, tt = ctx.t, kneel = (tt * k) % 1 < 0.25, t0 = kneel ? Math.floor(tt * k) / k : tt;
+    const x = S.W / 2 + (S.W / 2 - 2.5) * Math.sin(t0 * 0.021 + (o.s || 0)), z = S.D / 2 + (S.D / 2 - 2.5) * Math.sin(t0 * 0.031 + (o.s || 0) * 1.7);
+    return { x, z, anim: kneel ? 'kneel' : 'walk', tool: kneel ? o.tool : null, task: o.task };
+  };
+}
+// troca de comportamento dentro da fase: [[p0, p1, fn], ...]
+function seq(parts) {
+  return ctx => {
+    for (const [a, b, fn] of parts) if (ctx.p >= a && ctx.p < b) return fn({ ...ctx, p: (ctx.p - a) / (b - a), t: ctx.t - a * ctx.ph.dur, ph: { ...ctx.ph, ops: ctx.ph.ops } });
+    const [a, b, fn] = parts[parts.length - 1]; return fn({ ...ctx, p: 1, t: ctx.t - a * ctx.ph.dur });
+  };
+}
+
+/* =====================================================================
+   Fases (modelos). Valores Sika: fichas técnicas Sika Suíça (out. 2026).
+   ===================================================================== */
+function inner(S, lane, m = 0.75) { return serp(m, m, S.W - m, S.D - m, lane); }
+function full(S, lane) { return serp(0, 0, S.W, S.D, lane); }
+function edge(S, m = 0.75) { return perim(0, 0, S.W, S.D, m); }
+
+const PH = {
+  assess: (s, e, o) => ({
+    id: 'assess', name: 'Chegada e avaliação do suporte', short: 'Avaliação', de: 'Untergrundprüfung', start: tm(s), end: tm(e), ops: [],
+    crew: S => {
+      const c = {}, pts = S.measurePts;
+      c[o.measurer] = visit(pts, { anim: 'kneel', tool: 'meter', task: 'Medir: CM, arrancamento (Haftzug), ponto de orvalho' });
+      if (o.helper) c[o.helper] = visit(pts.map(p => ({ x: p.x + 1.4, z: p.z + 0.6 })), { anim: 'kneel', tool: 'hammer', task: 'Tirar amostras para o CM (martelo e escopro)', walk: 0.5 });
+      o.carriers.forEach((w, i) => { c[w] = carryLoop({ from: S => S.vanDoor(i % 2), to: S => S.mixSpot(0), period: 16, offset: i * 0.45, task: 'Descarregar a Sprinter e montar o posto de mistura' }); });
+      return c;
+    },
+    readings: S => S.measurePts.map((p, i) => ({ who: o.measurer, frac: (i + 0.7) / S.measurePts.length, kind: ['dew', 'cm', 'po', 'cm'][i % 4] })),
+  }),
+  prep: (s, e, o) => ({
+    id: 'prep', name: 'Granalhagem e bordos', short: 'Granalhagem', de: 'Kugelstrahlen', start: tm(s), end: tm(e),
+    ops: S => [
+      { bit: B.BLAST, path: inner(S, 2), win: [0, 0.9] },
+      { bit: B.BLAST, path: edge(S), win: [0.02, 0.92] },
+      { bit: B.VAC, path: inner(S, 2), win: [0.07, 0.98] },
+      { bit: B.VAC, path: edge(S), win: [0.1, 1] },
+    ],
+    crew: () => {
+      const c = {};
+      c[o.blaster] = follow(0, { tool: 'blaster', anim: 'push', task: 'Granalhagem em faixas (Kugelstrahlen)', emit: 'dust' });
+      c[o.edge] = follow(1, { tool: 'grinder', anim: 'kneel', task: 'Bordos com rebarbadora e copo diamantado', emit: 'dust' });
+      c[o.vac] = follow(2, { tool: 'vacuum', anim: 'push', task: 'Aspiração atrás da granalhadora' });
+      if (o.vacEdge) c[o.vacEdge] = follow(3, { tool: 'vacuum', anim: 'push', task: 'Aspiração dos bordos' });
+      return c;
+    },
+  }),
+  repair: (s, e, o) => ({
+    id: 'repair', name: 'Reparação de fissuras', short: 'Reparação', de: 'Rissanierung', start: tm(s), end: tm(e), ops: [],
+    crew: S => {
+      const c = {};
+      o.fixers.forEach((w, j) => {
+        const mine = S.cracks.filter((k, i) => i % o.fixers.length === j);
+        c[w] = visit(mine.map(k => ({ x: k.cx + 0.6, z: k.cz + 0.6 })), { anim: 'kneel', tool: 'trowel', task: 'Abrir em V, aspirar e encher com Sikadur®-31+', emit: 'spark' });
+      });
+      c[o.mixer] = stay(S => S.mixSpot(0), { anim: 'mix', tool: 'mixer', face: Math.PI, task: 'Misturar Sikadur®-31+ (A : B = 2 : 1)' });
+      c[o.taper] = trace(perim(0, 0, S.W, S.D, 0.6), [0, 1], { anim: 'walk', tool: 'tape', task: 'Fita-cola nas paredes e portas' });
+      return c;
+    },
+    rep: o,
+  }),
+  primer: (s, e, o) => ({
+    id: 'primer', name: 'Primário + areia ligeira', short: 'Primário', de: 'Grundierung', start: tm(s), end: tm(e),
+    ops: S => [
+      { bit: B.PRIM, path: full(S, 2.5), win: [0, 0.93] },
+      ...(o.sand ? [{ bit: B.SAND, path: full(S, 2.5), win: [0.06, 0.99] }] : []),
+    ],
+    crew: () => {
+      const c = {};
+      c[o.squeegee] = follow(0, { tool: 'squeegee', anim: 'push', task: `${o.product}: despejar e puxar com rodo de borracha` });
+      c[o.roller] = follow(0, { lag: 0.022, tool: 'roller', anim: 'roll', wiggle: 0.6, wf: 3, task: 'Rolo de pelo curto, cruzado — sem poças' });
+      if (o.sander) c[o.sander] = follow(1, { tool: 'sandbucket', anim: 'throw', task: 'Polvilhar areia de quartzo, só ligeiro', emit: 'sand' });
+      c[o.mixer] = shuttle(0, { period: 26, mix: 0.5, mixTask: `Misturar ${o.product}: A, depois B todo, 3 min devagar` });
+      return c;
+    },
+    product: o.product,
+  }),
+  selfLevel: (s, e, o) => ({
+    id: 'selfLevel', name: 'Autonivelante 2 mm', short: 'Autonivelante', de: 'Verlaufsbeschichtung', start: tm(s), end: tm(e),
+    ops: S => [
+      { bit: B.COAT, path: full(S, 3), win: [0, 0.95] },
+      { bit: B.ROLL, path: full(S, 3), win: [0.014, 0.964] },
+    ],
+    crew: () => {
+      const c = {};
+      c[o.rakel] = follow(0, { tool: 'rakel', anim: 'push', task: 'Espalhar com rodo dentado (Zahnrakel)' });
+      c[o.spike] = follow(1, { tool: 'spike', anim: 'roll', wiggle: 1.2, wf: 2.4, task: 'Rolo de picos cruzado, com sapatos de pregos' });
+      c[o.runner] = shuttle(0, { period: 15, offset: 0.4, mix: 0.3, mixAnim: 'idle', mixTask: 'A buscar o balde ao posto de mistura', slot: 1 });
+      c[o.mixer] = stay(S => S.mixSpot(0), { anim: 'mix', tool: 'mixer', face: Math.PI, task: '264 Plus: A+B 3 min, depois areia 1 : 0,7 mais 2 min' });
+      return c;
+    },
+    readings: () => [{ who: o.runner, frac: 0.32, kind: 'wft' }, { who: o.runner, frac: 0.71, kind: 'wft' }],
+  }),
+  broadcast: (s, e, o) => ({
+    id: 'broadcast', name: 'Camada base + quartzo em excesso', short: 'Base + quartzo', de: 'Grundschicht, abgestreut', start: tm(s), end: tm(e),
+    ops: S => [
+      { bit: B.COAT, path: full(S, 3), win: [0, 0.92] },
+      { bit: B.ROLL, path: full(S, 3), win: [0.01, 0.93] },
+      { bit: B.QUARTZ, path: full(S, 3), win: [0.035, 0.965] },
+    ],
+    crew: () => {
+      const c = {};
+      c[o.rakel] = follow(0, {
+        tool: ctx => (Math.floor(ctx.t / 6) % 3 === 2 ? 'spike' : 'rakel'), anim: 'push',
+        task: ctx => (Math.floor(ctx.t / 6) % 3 === 2 ? 'Rolo de picos cruzado (sapatos de pregos)' : 'Espalhar com rodo dentado'),
+      });
+      c[o.thrower] = follow(2, { tool: 'sandbag', anim: 'throw', side: -1.1, task: 'Polvilhar quartzo 0,3–0,9 mm em excesso', emit: 'quartz' });
+      c[o.mixer] = shuttle(0, { period: 16, mix: 0.45, mixTask: '264 Plus + areia 0,06–0,3 mm (1 : 0,7)' });
+      return c;
+    },
+  }),
+  sweepSeal: (s, e, o) => ({
+    id: 'sweepSeal', name: 'Limpar o excesso e selar', short: 'Selagem', de: 'Absaugen + Versiegelung', start: tm(s), end: tm(e),
+    ops: S => [
+      { bit: B.SWEPT, path: serp(0, 0, S.W / 2, S.D, 2), win: [0, 0.38] },
+      { bit: B.SWEPT, path: serp(S.W / 2, 0, S.W, S.D, 2), win: [0, 0.38] },
+      { bit: B.SEAL, path: full(S, 2.5), win: [0.42, 0.97] },
+    ],
+    crew: () => {
+      const c = {};
+      c[o.sweepA] = seq([[0, 0.4, follow(0, { tool: 'vacuum', anim: 'push', task: 'Varrer e aspirar a areia solta', emit: 'dust' })],
+                        [0.4, 1, ctx => shuttle(2, { period: 18, mix: 0.45, mixTask: 'Misturar 264 Plus para a selagem' })({ ...ctx, p: 0.42 + ctx.p * 0.58, t: ctx.t })]]);
+      c[o.sweepB] = seq([[0, 0.4, follow(1, { tool: 'vacuum', anim: 'push', task: 'Varrer e aspirar a areia solta', emit: 'dust' })],
+                        [0.4, 1, ctx => follow(2, { tool: 'squeegee', anim: 'push', task: 'Selagem: rodo de borracha, fino e uniforme' })({ ...ctx, p: 0.42 + ctx.p * 0.58 })]]);
+      c[o.roller] = seq([[0, 0.4, wander({ s: 2, tool: 'meter', task: 'Verificar a areia solta e a humidade' })],
+                         [0.4, 1, ctx => follow(2, { lag: 0.02, tool: 'roller', anim: 'roll', wiggle: 0.6, wf: 3, task: 'Rolo de nylon, cruzado' })({ ...ctx, p: 0.42 + ctx.p * 0.58 })]]);
+      return c;
+    },
+  }),
+  cure: (s, e, o) => ({ id: 'cure', name: o.name, short: 'Cura', de: 'Aushärtung', start: tm(s), end: tm(e), idle: true, ops: [] }),
+  handover: (s, e, o) => ({
+    id: 'handover', name: o.lines ? 'Marcação e entrega' : 'Controlo final e entrega', short: 'Entrega', de: 'Abnahme', start: tm(s), end: tm(e), ops: [],
+    crew: S => {
+      const c = {}, pts = S.inspectPts;
+      c[o.chief] = visit(pts, { anim: 'kneel', tool: 'lamp', task: 'Luz rasante: procurar crateras e emendas', walk: 0.5 });
+      c[S.client] = visit(pts.map(p => ({ x: p.x + 1.1, z: p.z - 0.5 })), { anim: 'idle', tool: 'clipboard', task: 'Vistoria e auto de receção', walk: 0.5 });
+      if (o.lines) {
+        o.lines.forEach((w, j) => {
+          const mine = S.stalls.filter((l, i) => i % o.lines.length === j);
+          c[w] = ctx => {
+            const n = mine.length, f = clamp(ctx.p / 0.85, 0, 0.9999) * n, i = Math.floor(f), u = f - i, L = mine[i];
+            if (ctx.p > 0.85) return { x: S.vanDoor(j).x, z: S.vanDoor(j).z, anim: 'idle', task: 'Carregar a Sprinter' };
+            return { x: L.x, z: lerp(L.z0, L.z1, u), face: 0, anim: 'roll', tool: 'liner', task: 'Marcar os lugares (fita e rolo)' };
+          };
+        });
+      }
+      (o.packers || []).forEach((w, i) => { c[w] = carryLoop({ from: S => S.mixSpot(0), to: S => S.vanDoor(i % 2), period: 14, offset: i * 0.33, task: 'Limpar ferramentas e carregar a Sprinter' }); });
+      return c;
+    },
+    lines: o.lines,
+  }),
+};
+
+/* =====================================================================
+   As duas obras
+   ===================================================================== */
+const SITES = [
+  {
+    id: 'A', title: 'Obra A · Armazém logístico', short: 'Armazém', chief: 'jord', client: 'clientA', ox: 0, W: 30, D: 18, wallH: 5, kind: 'hall', door: [21, 25],
+    coat: '#A9AEAC', coatName: 'RAL 7035 cinza-claro (aprox.)', seal: null, seed: 11,
+    system: 'Autonivelante epóxi ~2 mm',
+    climate: { air: 18.5, airAmp: 1.4, rh: 55, rhAmp: 6, sub: 17.5, subAmp: 0.5 },
+    values: { cm: [2.4, 2.9], po: 2.1, wft: [2.0, 2.1] },
+    layers: [
+      { name: 'Betão (suporte)', mm: 'granalhado', col: '#AFAEA8', h: 34 },
+      { name: 'Sikafloor®-160 + areia ligeira', mm: '~0,4 kg/m²', col: '#D6A54A', h: 24 },
+      { name: 'Sikafloor®-264 Plus + Sika® Quarzsand 0,06–0,3', mm: '2 mm', col: '#C3C6C2', h: 44 },
+    ],
+    products: [
+      { name: 'Sikafloor®-160', use: 'Primário', mix: '64 : 36', pds: '0,35–0,55 kg/m² por demão', rate: 0.45, bit: B.PRIM },
+      { name: 'Sika® Quarzsand 0,3–0,9 mm', use: 'Polvilhamento ligeiro do primário', pds: 'ligeiro, < 1 kg/m²', rate: 0.5, bit: B.SAND, est: true },
+      { name: 'Sikafloor®-264 Plus', use: 'Autonivelante (ligante)', mix: '80 : 20', pds: '1,0 kg/m² por mm → 2,0 kg/m²', rate: 2.0, bit: B.COAT },
+      { name: 'Sika® Quarzsand 0,06–0,3 mm', use: 'Carga do autonivelante (1 : 0,7)', pds: '0,7 kg/m² por mm → 1,4 kg/m²', rate: 1.4, bit: B.COAT },
+      { name: 'Sikadur®-31+', use: 'Fissuras e chochos', mix: '2 : 1', pds: 'pontual', rate: 0, bit: B.REP },
+    ],
+    times: [['Tempo de vida da mistura', '~25 min a +20 °C'], ['Pisável', '~24 h a +20 °C'], ['Carga total (empilhadores)', '~5 dias a +20 °C'], ['Espera primário → 264 Plus', '12 h – 2 dias a +20 °C']],
+    phases: [
+      PH.assess('1 07:00', '1 08:30', { measurer: 'jord', helper: 'renato', carriers: ['marco', 'arlindo'] }),
+      PH.prep('1 08:30', '1 15:30', { blaster: 'marco', edge: 'renato', vac: 'arlindo', vacEdge: 'jord' }),
+      PH.repair('1 15:30', '1 17:00', { fixers: ['renato', 'marco'], mixer: 'arlindo', taper: 'jord' }),
+      PH.primer('2 07:00', '2 10:30', { squeegee: 'renato', roller: 'marco', sander: 'jord', mixer: 'arlindo', product: 'Sikafloor®-160', sand: true }),
+      PH.selfLevel('3 07:00', '3 12:00', { rakel: 'renato', spike: 'marco', runner: 'jord', mixer: 'arlindo' }),
+      PH.cure('3 12:00', '4 12:00', { name: 'Cura até ser pisável' }),
+      PH.handover('4 12:00', '4 13:00', { chief: 'jord', packers: ['renato', 'marco', 'arlindo'] }),
+    ],
+  },
+  {
+    id: 'B', title: 'Obra B · Garagem subterrânea', short: 'Garagem', chief: 'thomas', client: 'clientB', ox: 62, W: 28, D: 16, wallH: 2.8, kind: 'garage', door: [19, 23.5],
+    coat: '#8F918C', coatName: 'cinza com quartzo', seal: '#9A9C97', seed: 29,
+    system: 'Sistema polvilhado antiderrapante ~4 mm',
+    climate: { air: 16, airAmp: 0.8, rh: 79, rhAmp: 3, sub: 15.2, subAmp: 0.3, dryAt: tm('1 09:00'), dryDrop: 17 },
+    values: { cm: [3.1, 3.4], po: 1.9, wft: [2.0, 2.0] },
+    layers: [
+      { name: 'Betão (suporte)', mm: 'granalhado', col: '#AFAEA8', h: 30 },
+      { name: 'Sikafloor®-150 Plus', mm: '~0,45 kg/m²', col: '#D6A54A', h: 18 },
+      { name: 'Sikafloor®-264 Plus + areia 0,06–0,3', mm: '2,0 + 1,4 kg/m²', col: '#8F918C', h: 30 },
+      { name: 'Sika® Quarzsand 0,3–0,9 mm (excesso)', mm: '4–6 kg/m²', col: '#D7C9A4', h: 24 },
+      { name: 'Selagem Sikafloor®-264 Plus', mm: '0,6–0,8 kg/m²', col: '#9A9C97', h: 16 },
+    ],
+    products: [
+      { name: 'Sikafloor®-150 Plus', use: 'Primário', mix: '74 : 26', pds: '0,35–0,55 kg/m² por demão', rate: 0.45, bit: B.PRIM },
+      { name: 'Sikafloor®-264 Plus', use: 'Camada base (ligante)', mix: '80 : 20', pds: '2,0 kg/m²', rate: 2.0, bit: B.COAT },
+      { name: 'Sika® Quarzsand 0,06–0,3 mm', use: 'Carga da camada base', pds: '1,4 kg/m²', rate: 1.4, bit: B.COAT },
+      { name: 'Sika® Quarzsand 0,3–0,9 mm', use: 'Polvilhamento em excesso', pds: '4–6 kg/m²', rate: 5, bit: B.QUARTZ },
+      { name: 'Sikafloor®-264 Plus', use: 'Selagem', mix: '80 : 20', pds: '0,6–0,8 kg/m²', rate: 0.7, bit: B.SEAL },
+      { name: 'Sikadur®-31+', use: 'Fissuras e chochos', mix: '2 : 1', pds: 'pontual', rate: 0, bit: B.REP },
+    ],
+    times: [['Tempo de vida da mistura', '~25 min a +20 °C, mais longo no frio'], ['Polvilhar', 'logo a seguir: primeiro ligeiro, depois em excesso'], ['Espera base → selagem', '30 h – 3 dias a +10 °C'], ['Pisável', '~72 h a +10 °C · ~24 h a +20 °C'], ['Carros (carga total)', '~7 dias a +10 °C · ~5 a +20 °C']],
+    phases: [
+      PH.assess('1 07:00', '1 08:30', { measurer: 'thomas', helper: 'carlos', carriers: ['hugo'] }),
+      PH.prep('1 08:30', '1 16:30', { blaster: 'hugo', edge: 'carlos', vac: 'thomas' }),
+      PH.repair('2 07:00', '2 08:30', { fixers: ['carlos'], mixer: 'hugo', taper: 'thomas' }),
+      PH.primer('2 08:30', '2 12:00', { squeegee: 'carlos', roller: 'thomas', mixer: 'hugo', product: 'Sikafloor®-150 Plus', sand: false }),
+      PH.broadcast('3 07:00', '3 12:30', { rakel: 'carlos', thrower: 'thomas', mixer: 'hugo' }),
+      PH.sweepSeal('5 07:00', '5 12:00', { sweepA: 'hugo', sweepB: 'carlos', roller: 'thomas' }),
+      PH.cure('5 12:00', '8 08:00', { name: 'Cura (fim de semana)' }),
+      PH.handover('8 08:00', '8 11:00', { chief: 'thomas', lines: ['hugo', 'carlos'] }),
+    ],
+  },
+];
+
+/* =====================================================================
+   Falas. [quem, língua, texto, tradução PT]. Valores entre {} vêm das medições.
+   ===================================================================== */
+const TALK = {
+  A: {
+    assess: [
+      { at: 'start', l: [['jord', 'de', 'Guten Morgen zusammen! Zuerst messen wir, dann geht es los.', 'Bom dia a todos! Primeiro medimos, depois começamos.'], ['renato', 'de', 'Alles klar, Jord. Ich hole das CM-Gerät.', 'Tudo certo, Jord. Vou buscar o aparelho CM.']] },
+      { l: [['jord', 'it', 'Arlindo, scarichiamo il furgone. Prima le macchine, poi i secchi.', 'Arlindo, vamos descarregar a carrinha. Primeiro as máquinas, depois os baldes.'], ['arlindo', 'it', 'Sì capo, prima macchine. Subito!', 'Sim, chefe, primeiro as máquinas. Já!']] },
+      { l: [['jord', 'de', 'Marco, du hilfst Arlindo. Langsam, die Maschine ist schwer.', 'Marco, ajudas o Arlindo. Devagar, a máquina é pesada.'], ['marco', 'de', 'Ja, Chef. Ich helfe. Langsam, ja.', 'Sim, chefe. Eu ajudo. Devagar, sim.']] },
+      { l: [['arlindo', 'pt', 'Renato, o que é que o chefe disse?'], ['renato', 'pt', 'Que a humidade está boa. Monta o posto de mistura em cima do plástico.']] },
+      { l: [['renato', 'pt', 'Amostra tirada. Garrafa do CM fechada, agora é abanar.'], ['marco', 'pt', 'Aqui junto à parede soa a oco. Marco com spray?']] },
+    ],
+    prep: [
+      { at: 'start', l: [['jord', 'de', 'Marco, gerade Bahnen, immer etwa fünf Zentimeter überlappen.', 'Marco, faixas direitas, sobrepõe sempre uns cinco centímetros.'], ['marco', 'de', 'Ja. Gerade. Fünf Zentimeter. Verstanden!', 'Sim. Direito. Cinco centímetros. Percebido!']] },
+      { l: [['jord', 'it', "Arlindo, l'aspiratore sempre dietro la macchina, eh!", 'Arlindo, o aspirador sempre atrás da máquina, eh!'], ['arlindo', 'it', 'Sì, sì, sempre dietro. Capito, capo!', 'Sim, sim, sempre atrás. Percebi, chefe!']] },
+      { l: [['renato', 'pt', 'Os cantos faço eu, com a rebarbadora e o copo diamantado.'], ['jord', 'de', 'Gut, Renato. Und Maske auf, das ist Quarzstaub.', 'Boa, Renato. E máscara posta, isto é pó de quartzo.']] },
+      { l: [['marco', 'pt', 'Olha a cor do betão, a leitança está a sair toda.'], ['arlindo', 'pt', 'Isto é que é pó! Ainda bem que temos o aspirador.']] },
+      { l: [['marco', 'de', 'Chef, Kugeln fast leer. Ich fülle, ja?', 'Chefe, granalha quase a acabar. Eu encho, sim?'], ['jord', 'de', 'Ja, mach. Der Sack steht beim Sprinter.', 'Sim, faz. O saco está ao pé da Sprinter.']] },
+      { l: [['arlindo', 'it', 'Capo, qui… suona vuoto. Come si dice… oco!', 'Chefe, aqui… soa a vazio. Como se diz… oco!'], ['jord', 'it', 'Ah, una zona vuota. La segno con lo spray, grazie!', 'Ah, uma zona oca. Marco com spray, obrigado!']] },
+    ],
+    repair: [
+      { at: 'start', l: [['jord', 'de', 'Renato, die Risse V-förmig aufschneiden, aussaugen und mit Sikadur-31+ füllen.', 'Renato, abrir as fissuras em V, aspirar e encher com Sikadur-31+.'], ['renato', 'de', 'Mach ich. Die Dehnfugen lassen wir offen, oder?', 'Faço. As juntas de dilatação ficam abertas, certo?'], ['jord', 'de', 'Genau. Die werden nicht überdeckt.', 'Exato. Essas não se tapam.']] },
+      { l: [['jord', 'it', 'Arlindo, mescola il Sikadur: due parti di A, una di B.', 'Arlindo, mistura o Sikadur: duas partes de A, uma de B.'], ['arlindo', 'it', 'Due e uno. Sì capo, mescolo bene.', 'Duas e uma. Sim, chefe, misturo bem.']] },
+      { l: [['renato', 'pt', 'Marco, rasa bem com a espátula, que depois lixa-se menos.'], ['marco', 'pt', 'Está bem. Este chocho é fundo, levo mais massa.']] },
+    ],
+    primer: [
+      { at: 'start', l: [['jord', 'de', 'Morgen! Boden {sub} °C, Taupunkt {td} °C. {m} Kelvin Abstand, wir starten.', 'Bom dia! Chão a {sub} °C, ponto de orvalho {td} °C. {m} K de margem, começamos.']] },
+      { l: [['jord', 'it', 'Arlindo, Sikafloor-160, sessantaquattro a trentasei: prima mescoli A, poi tutto il B. Tre minuti, piano.', 'Arlindo, Sikafloor-160, 64 para 36: primeiro mexes o A, depois o B todo. Três minutos, devagar.'], ['arlindo', 'it', 'Prima A, poi B, tre minuti. Piano piano!', 'Primeiro A, depois B, três minutos. Devagarinho!']] },
+      { l: [['renato', 'pt', 'Despejo em linha e puxo com o rodo. Marco, rolo cruzado atrás de mim.'], ['marco', 'pt', 'Vou atrás. Sem poças, eu sei.']] },
+      { l: [['arlindo', 'pt', 'Renato, o chefe disse “umtopfen”. O que é isso?'], ['renato', 'pt', 'É passar a mistura para um balde limpo e mexer mais um minuto.']] },
+      { l: [['marco', 'de', 'Chef, hier saugt der Beton viel. Zweimal?', 'Chefe, aqui o betão chupa muito. Duas vezes?'], ['jord', 'de', 'Ja, dort eine zweite Schicht. Der Film muss porenfrei sein.', 'Sim, aí uma segunda demão. A película tem de ficar sem poros.']] },
+      { l: [['jord', 'de', 'Nur leicht abstreuen, Leute. Nicht zudecken.', 'Só polvilhar ligeiro, malta. Não é para cobrir.'], ['renato', 'pt', 'Areia levezinha, Marco, tipo sal na sopa.']] },
+      { at: 'end', l: [['jord', 'de', 'Fertig. Absperren, bis morgen betritt niemand die Halle.', 'Feito. Vedar, ninguém entra no pavilhão até amanhã.']] },
+    ],
+    selfLevel: [
+      { at: 'start', l: [['jord', 'de', 'Heute der Verlauf: Sikafloor-264 Plus, zwei Millimeter. Ein Gebinde pro Feld!', 'Hoje o autonivelante: Sikafloor-264 Plus, dois milímetros. Um kit por campo!'], ['renato', 'de', 'Felder sind mit Kreide markiert, der Zahnrakel ist eingestellt.', 'Os campos estão marcados a giz, o rodo dentado está afinado.']] },
+      { l: [['jord', 'it', 'Arlindo, 264 Plus ottanta a venti, poi la sabbia: uno a zero virgola sette. Ancora due minuti.', 'Arlindo, 264 Plus 80 para 20, depois a areia: um para zero vírgula sete. Mais dois minutos.'], ['arlindo', 'it', 'Sabbia… zero sette. Due minuti. Va bene, capo!', 'Areia… zero sete. Dois minutos. Está bem, chefe!']] },
+      { l: [['marco', 'pt', 'Sapatos de pregos calçados. Vou entrar com o rolo de picos.'], ['renato', 'pt', 'Rola cruzado, Marco. Primeiro para cá, depois de lado.']] },
+      { l: [['marco', 'pt', 'Olha as bolhinhas a rebentar, está a sair o ar todo.']] },
+      { l: [['renato', 'de', 'Jord, nächster Eimer! Ich bin am Ende der Bahn.', 'Jord, próximo balde! Estou no fim da faixa.'], ['jord', 'de', 'Kommt! Nass in nass, keine Ansätze.', 'Vai já! Fresco sobre fresco, nada de emendas.']] },
+      { l: [['arlindo', 'pt', 'Marco, escreve a hora no balde. Isto só aguenta uns 25 minutos.'], ['marco', 'pt', 'Já escrevi. Kit doze, dez e um quarto.']] },
+      { l: [['jord', 'de', 'Marco, vor dem Gang die Schuhe ausziehen, bitte.', 'Marco, tira os sapatos de pregos antes do corredor, por favor.'], ['marco', 'de', 'Ja, Chef. Schuhe weg.', 'Sim, chefe. Sapatos fora.']] },
+      { at: 'end', l: [['jord', 'de', 'Super gemacht! Morgen begehbar, Stapler erst nach etwa fünf Tagen.', 'Muito bem! Amanhã já se pisa; empilhadores só daqui a uns cinco dias.']] },
+    ],
+    handover: [
+      { at: 'start', l: [['jord', 'de', 'Grüezi! Wir schauen den Boden mit Streiflicht an.', 'Bom dia! Vamos ver o chão com luz rasante.'], ['clientA', 'de', 'Grüezi. Sieht sehr gleichmässig aus.', 'Bom dia. Parece muito uniforme.']] },
+      { l: [['jord', 'de', 'Hier ist ein kleiner Krater, den bessern wir gleich aus.', 'Aqui há uma pequena cratera, retocamos já.']] },
+      { l: [['clientA', 'de', 'Ab wann dürfen die Stapler fahren?', 'A partir de quando podem andar os empilhadores?'], ['jord', 'de', 'Bei 20 Grad nach etwa fünf Tagen. Das Protokoll mit Chargen und Klima bekommen Sie.', 'A 20 graus, após uns cinco dias. Recebe o protocolo com lotes e clima.']] },
+      { l: [['renato', 'pt', 'Arlindo, ferramentas limpas antes de carregar a Sprinter.'], ['arlindo', 'pt', 'Já está quase. O Marco leva a granalhadora.']] },
+      { at: 'end', l: [['jord', 'it', 'Bravi ragazzi, ottimo lavoro!', 'Bravos, rapazes, ótimo trabalho!'], ['arlindo', 'it', 'Grazie capo! Domani altro cantiere?', 'Obrigado, chefe! Amanhã outra obra?']] },
+    ],
+  },
+  B: {
+    assess: [
+      { at: 'start', l: [['thomas', 'pt', 'Bom dia, malta. Primeiro mede-se, depois é que se mexe.'], ['carlos', 'pt', 'Vou buscar o CM e o termohigrómetro à Sprinter.']] },
+      { l: [['thomas', 'pt', 'Humidade a {rh} %. Garagem subterrânea é sempre húmida.'], ['thomas', 'pt', 'Hugo, liga o desumidificador.'], ['hugo', 'pt', 'Já está ligado, chefe.']] },
+      { l: [['hugo', 'pt', 'Carlos, junto à rampa soa a oco. Marco com spray?'], ['carlos', 'pt', 'Marca. O chefe depois decide.']] },
+      { l: [['carlos', 'pt', 'CM a {cm} %. Por pouco: acima de 4 % levava EpoCem primeiro.'], ['thomas', 'pt', 'Sikafloor-81 EpoCem, e só kits inteiros. Hoje não é preciso.']] },
+    ],
+    prep: [
+      { at: 'start', l: [['thomas', 'pt', 'Hugo, granalhadora em faixas direitas, sobrepõe uns 5 cm.'], ['hugo', 'pt', 'Combinado. Liga o aspirador primeiro, senão é só pó.']] },
+      { l: [['carlos', 'pt', 'Faço os bordos e à volta dos pilares com a rebarbadora.']] },
+      { l: [['hugo', 'pt', 'A granalha está a acabar, vou encher o depósito.']] },
+      { l: [['thomas', 'pt', 'Protetores e máscara, isto é pó de quartzo.']] },
+      { l: [['carlos', 'pt', 'Aqui havia óleo de carro. Leva mais uma passagem.']] },
+    ],
+    repair: [
+      { at: 'start', l: [['carlos', 'pt', 'Abro as fissuras em V com o disco e depois aspiro.'], ['thomas', 'pt', 'Enche com Sikadur-31+ e rasa com a espátula.']] },
+      { l: [['hugo', 'pt', 'Duas partes de A para uma de B, certo?'], ['carlos', 'pt', 'Certo. Mexe até a cor ficar igual.']] },
+      { l: [['thomas', 'pt', 'As juntas de dilatação não se tapam, respeitam-se.']] },
+    ],
+    primer: [
+      { at: 'start', l: [['thomas', 'pt', 'Chão a {sub} °C, ponto de orvalho {td} °C. Margem de {m} K, avançamos.']] },
+      { l: [['hugo', 'pt', 'Sikafloor-150 Plus, 74 para 26: primeiro o A, depois o B todo. Três minutos.']] },
+      { l: [['hugo', 'pt', 'Carlos, sobrou meio balde. Faço uma meia dose?'], ['carlos', 'pt', 'Nada de meias doses a olho. Se for preciso, pesa: B é 0,351 por cada quilo de A.']] },
+      { l: [['carlos', 'pt', 'Despejo em linha e puxo com o rodo de borracha.'], ['thomas', 'pt', 'Eu vou atrás com o rolo, cruzado.']] },
+      { l: [['thomas', 'pt', 'Onde o betão chupa mais, leva segunda mão.']] },
+      { at: 'end', l: [['thomas', 'pt', 'Ninguém pisa até amanhã. Fita de sinalização na rampa.']] },
+    ],
+    broadcast: [
+      { at: 'start', l: [['thomas', 'pt', 'Hoje é a camada base com areia, e polvilha-se logo em excesso.'], ['carlos', 'pt', 'Rodo dentado afinado. Hugo, manda o primeiro balde.']] },
+      { l: [['hugo', 'pt', 'Kit pronto! Escrevi a hora no balde.'], ['carlos', 'pt', 'Despeja aqui. Mantém a borda fresca.']] },
+      { l: [['thomas', 'pt', 'Areia 0,3 a 0,9 mm, atirada para cima, que caia como chuva.']] },
+      { l: [['carlos', 'pt', 'Polvilha até deixares de ver resina molhada.'], ['thomas', 'pt', 'Em excesso, uns 4 a 6 quilos por metro.']] },
+      { l: [['hugo', 'pt', 'Com este fresco a mistura aguenta mais um bocadinho.']] },
+      { l: [['thomas', 'pt', 'Se arrefecer mais, Booster 54: 15 ml por quilo de 264 Plus.'], ['hugo', 'pt', 'Só mesmo antes de aplicar, que o tempo de trabalho fica a metade.']] },
+      { at: 'end', l: [['thomas', 'pt', 'Amanhã não se mexe. Sexta aspira-se o excesso e sela-se.']] },
+    ],
+    sweepSeal: [
+      { at: 'start', l: [['thomas', 'pt', 'Primeiro tirar a areia que não colou. Tudo!'], ['hugo', 'pt', 'Vassoura primeiro, depois aspirador.']] },
+      { l: [['carlos', 'pt', 'Selagem com o rodo de borracha, rolo atrás.']] },
+      { l: [['thomas', 'pt', 'Sikafloor-264 Plus na selagem, uns 0,6 a 0,8 quilos por metro.']] },
+      { at: 'end', l: [['hugo', 'pt', 'Fim de semana para curar. Segunda é a entrega.']] },
+    ],
+    handover: [
+      { at: 'start', l: [['clientB', 'de', 'Grüezi mitenand! Ist die Garage fertig?', 'Bom dia a todos! A garagem está pronta?'], ['carlos', 'de', 'Grüezi! Heute noch die Markierungen, dann ist alles fertig.', 'Bom dia! Hoje ainda as marcações e fica tudo pronto.']] },
+      { l: [['thomas', 'pt', 'Carlos, diz-lhe que os carros só daqui a uns dias.'], ['carlos', 'de', 'Die Autos bitte erst in ein paar Tagen, dann ist der Boden voll belastbar.', 'Os carros só daqui a uns dias, quando o chão aguentar a carga toda.']] },
+      { l: [['clientB', 'de', 'Und rutschfest ist er auch?', 'E também é antiderrapante?'], ['carlos', 'de', 'Ja, mit Quarzsand abgestreut und versiegelt.', 'Sim, polvilhado com areia de quartzo e selado.']] },
+      { l: [['hugo', 'pt', 'Linhas direitas, Carlos. Fita primeiro, depois o rolo.']] },
+      { at: 'end', l: [['thomas', 'pt', 'Auto de receção assinado. Carrinhas carregadas, bom trabalho, malta!']] },
+    ],
+  },
+};
+// Leituras de medições faladas por quem mede.
+const READ_TALK = {
+  de: {
+    cm: ['CM-Messung: {v} %. Unter 4 %, das passt.', 'Medição CM: {v} %. Abaixo de 4 %, está bom.'],
+    po: ['Haftzug {v} N/mm², Bruch im Beton. Der Untergrund hält.', 'Arrancamento {v} N/mm², rotura no betão. O suporte aguenta.'],
+    dew: ['Boden {sub} °C, Taupunkt {td} °C: {m} K Abstand.', 'Chão {sub} °C, ponto de orvalho {td} °C: margem de {m} K.'],
+    wft: ['Nassschichtdicke etwa {v} mm. Passt.', 'Espessura húmida uns {v} mm. Está bem.'],
+  },
+  pt: {
+    cm: ['CM deu {v} %. Abaixo de 4 %, está bom.'],
+    po: ['Arrancamento {v} N/mm², partiu no betão. O suporte aguenta.'],
+    dew: ['Chão {sub} °C, ponto de orvalho {td} °C: margem de {m} K.'],
+    wft: ['Pente na massa: uns {v} mm, está dentro.'],
+  },
+};
+// Chamadas da Corinna (escritório). Obra B: liga ao Carlos, que traduz para o Thomas.
+const CALLS = [
+  { t: tm('1 09:40'), site: 'A', to: 'jord', de: 'Guten Morgen Jord, hier Corinna. Die Lieferung Sikafloor-264 Plus kommt Mittwoch um sieben direkt auf die Baustelle.', pt: 'Bom dia Jord, fala a Corinna. A entrega de Sikafloor-264 Plus chega quarta às sete diretamente à obra.', reply: ['jord', 'de', 'Perfekt, danke Corinna. Arlindo nimmt sie entgegen.', 'Perfeito, obrigado Corinna. O Arlindo recebe-a.'] },
+  { t: tm('2 10:15'), site: 'B', to: 'carlos', de: 'Hallo Carlos, Corinna hier. Kannst du Thomas sagen, dass der Rapport von letzter Woche noch fehlt?', pt: 'Olá Carlos, é a Corinna. Podes dizer ao Thomas que ainda falta o relatório de horas da semana passada?', reply: ['carlos', 'pt', 'Thomas, a Corinna diz que ainda falta o relatório de horas da semana passada.'], reply2: ['thomas', 'pt', 'Diz-lhe que mando hoje à noite.'] },
+  { t: tm('3 10:30'), site: 'A', to: 'jord', de: 'Jord, der Kunde fragt, ab wann die Stapler wieder fahren dürfen.', pt: 'Jord, o cliente pergunta a partir de quando os empilhadores podem voltar a andar.', reply: ['jord', 'de', 'Sag ihm: bei 20 Grad nach etwa fünf Tagen. Ich schreibe es ins Protokoll.', 'Diz-lhe: a 20 graus, após uns cinco dias. Escrevo no protocolo.'] },
+  { t: tm('5 08:20'), site: 'B', to: 'carlos', de: 'Carlos, die Verwaltung kommt am Montag um acht zur Abnahme.', pt: 'Carlos, a administração vem segunda às oito para a receção da obra.', reply: ['carlos', 'pt', 'Thomas, a vistoria é segunda às oito.'], reply2: ['thomas', 'pt', 'Ótimo. Até lá está curado.'] },
+];
+
+/* =====================================================================
+   Three.js: cena, câmara, luzes
+   ===================================================================== */
+const canvas = $('#gl'), stageEl = $('#stage');
+const isNarrow = () => matchMedia('(max-width: 860px)').matches;
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+// r147 treats hex colours as linear unless legacy mode is off; without this every colour washes out.
+THREE.ColorManagement.legacyMode = false;
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio || 1, isNarrow() ? 1.75 : 2));
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.setClearColor(0x000000, 0);
+
+const scene = new THREE.Scene();
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new THREE.RoomEnvironment(), 0.04).texture;
+
+const camera = new THREE.PerspectiveCamera(32, 1, 0.5, 900);
+const controls = new THREE.MapControls(camera, canvas);
+controls.enableDamping = true;
+controls.dampingFactor = 0.09;
+controls.screenSpacePanning = false;
+controls.minDistance = 10;
+controls.maxDistance = 190;
+controls.maxPolarAngle = 1.32;
+controls.minPolarAngle = 0.35;
+
+const hemi = new THREE.HemisphereLight(0xffffff, 0xb7c0c8, 0.35);
+scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xffffff, 1.25);
+sun.castShadow = true;
+sun.shadow.mapSize.set(isNarrow() ? 1024 : 2048, isNarrow() ? 1024 : 2048);
+sun.shadow.bias = -0.0004;
+sun.shadow.normalBias = 0.02;
+const sc = sun.shadow.camera; sc.left = -34; sc.right = 34; sc.top = 30; sc.bottom = -30; sc.near = 1; sc.far = 160;
+scene.add(sun, sun.target);
+
+/* materiais e geometrias partilhadas */
+const matCache = new Map();
+function mat(color, rough = 0.7, metal = 0) {
+  const k = color + '|' + rough + '|' + metal;
+  if (!matCache.has(k)) matCache.set(k, new THREE.MeshStandardMaterial({ color, roughness: rough, metalness: metal, envMapIntensity: 0.45 }));
+  return matCache.get(k);
+}
+function mesh(geo, material, x = 0, y = 0, z = 0, parent) {
+  const m = new THREE.Mesh(geo, material); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true;
+  if (parent) parent.add(m);
+  return m;
+}
+const G = {
+  box: new THREE.BoxGeometry(1, 1, 1),
+  cyl: new THREE.CylinderGeometry(1, 1, 1, 20),
+  cyl8: new THREE.CylinderGeometry(1, 1, 1, 10),
+  sph: new THREE.SphereGeometry(1, 18, 14),
+  rbox: (w, h, d, r = 0.06) => new THREE.RoundedBoxGeometry(w, h, d, 2, r),
+};
+function box(w, h, d, material, x, y, z, parent) { const m = mesh(G.box, material, x, y, z, parent); m.scale.set(w, h, d); return m; }
+function cyl(r, h, material, x, y, z, parent, seg) { const m = mesh(seg ? G.cyl8 : G.cyl, material, x, y, z, parent); m.scale.set(r, h, r); return m; }
+
+/* ---------- pessoas ---------- */
+const legGeo = new THREE.BoxGeometry(0.15, 0.8, 0.17); legGeo.translate(0, -0.4, 0);
+const armGeo = new THREE.BoxGeometry(0.12, 0.6, 0.13); armGeo.translate(0, -0.29, 0);
+const torsoGeo = G.rbox(0.46, 0.58, 0.28, 0.07);
+const helmetGeo = new THREE.SphereGeometry(0.168, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2);
+const brimGeo = new THREE.CylinderGeometry(0.2, 0.2, 0.025, 18);
+const hitMat = new THREE.MeshBasicMaterial({ visible: false });
+
+function makePerson(c) {
+  const root = new THREE.Group(), hip = new THREE.Group();
+  hip.position.y = 0.86; root.add(hip);
+  const pants = mat(c.guest ? '#3B4350' : '#2A3441', 0.8), vest = mat(c.vest || '#EE7425', 0.55), skin = mat(c.skin, 0.65), helm = mat(c.helmet, 0.35);
+  const legL = mesh(legGeo, pants, -0.1, 0, 0, hip), legR = mesh(legGeo, pants, 0.1, 0, 0, hip);
+  box(0.17, 0.1, 0.25, mat('#1E2329', 0.6), 0, -0.8, 0.04, legL); box(0.17, 0.1, 0.25, mat('#1E2329', 0.6), 0, -0.8, 0.04, legR);
+  const torso = mesh(torsoGeo, vest, 0, 0.31, 0, hip);
+  if (!c.guest) { box(0.475, 0.045, 0.29, mat('#E9EDF0', 0.25), 0, 0.2, 0, hip); box(0.475, 0.045, 0.29, mat('#E9EDF0', 0.25), 0, 0.38, 0, hip); }
+  const shL = new THREE.Group(), shR = new THREE.Group();
+  shL.position.set(-0.3, 0.55, 0); shR.position.set(0.3, 0.55, 0); hip.add(shL, shR);
+  const armMat = c.guest ? mat(c.vest, 0.6) : vest;
+  mesh(armGeo, armMat, 0, 0, 0, shL); mesh(armGeo, armMat, 0, 0, 0, shR);
+  const hL = mesh(G.sph, skin, 0, -0.6, 0, shL), hR = mesh(G.sph, skin, 0, -0.6, 0, shR); hL.scale.setScalar(0.065); hR.scale.setScalar(0.065);
+  const head = mesh(G.sph, skin, 0, 0.76, 0, hip); head.scale.setScalar(0.145);
+  mesh(helmetGeo, helm, 0, 0.79, 0, hip);
+  mesh(brimGeo, helm, 0, 0.8, 0.03, hip);
+  const hit = new THREE.Mesh(G.box, hitMat); hit.scale.set(0.9, 2.1, 0.9); hit.position.y = 1.05; root.add(hit);
+  root.scale.setScalar(CS);
+  torso.castShadow = true;
+  return { root, hip, legL, legR, shL, shR, hit };
+}
+
+/* ---------- ferramentas e máquinas (presas à pessoa, +z = frente) ---------- */
+function makeTools(P) {
+  const T = {}, add = (k, g) => { g.visible = false; P.root.add(g); T[k] = g; return g; };
+  const grey = mat('#D5DADF', 0.45), dark = mat('#2C333B', 0.6), blue = mat('#3F6C99', 0.5), yellow = mat('#E5B523', 0.5), steel = mat('#9AA3AB', 0.35, 0.6);
+  // granalhadora
+  let g = add('blaster', new THREE.Group());
+  mesh(G.rbox(0.52, 0.5, 0.78, 0.07), grey, 0, 0.36, 0.95, g); box(0.54, 0.08, 0.8, blue, 0, 0.62, 0.95, g);
+  cyl(0.15, 0.32, dark, 0, 0.8, 1.08, g); cyl(0.07, 0.6, dark, 0, 0.35, 0.5, g).rotation.x = 1.2;
+  box(0.05, 0.9, 0.05, steel, -0.2, 0.75, 0.48, g).rotation.x = -0.5; box(0.05, 0.9, 0.05, steel, 0.2, 0.75, 0.48, g).rotation.x = -0.5; box(0.5, 0.05, 0.05, dark, 0, 1.13, 0.27, g);
+  // desbastadora de bordos (rebarbadora)
+  g = add('grinder', new THREE.Group()); cyl(0.1, 0.08, dark, 0.05, 0.05, 0.5, g); box(0.09, 0.09, 0.32, yellow, 0.05, 0.14, 0.35, g);
+  // aspirador
+  g = add('vacuum', new THREE.Group()); cyl(0.22, 0.6, mat('#C9473A', 0.5), 0.45, 0.38, -0.55, g); cyl(0.24, 0.05, dark, 0.45, 0.7, -0.55, g);
+  box(0.55, 0.06, 0.14, dark, 0, 0.04, 0.95, g); const w1 = cyl(0.025, 1.1, steel, 0, 0.55, 0.62, g); w1.rotation.x = 0.95;
+  // rolo de pelo curto, rolo de picos, rodo dentado, rodo de borracha
+  const pole = (gg, len = 1.55) => { const p = cyl(0.02, len, mat('#CFA25A', 0.5), 0, 0.55, 0.85, gg); p.rotation.x = 1.08; };
+  g = add('roller', new THREE.Group()); pole(g); const r1 = cyl(0.06, 0.45, mat('#F2F2EE', 0.9), 0, 0.07, 1.5, g); r1.rotation.z = Math.PI / 2;
+  g = add('spike', new THREE.Group()); pole(g); const r2 = cyl(0.08, 0.5, mat('#4A5560', 0.6), 0, 0.08, 1.5, g); r2.rotation.z = Math.PI / 2;
+  for (let i = 0; i < 6; i++) { const ring = cyl(0.1, 0.02, mat('#7E8A95', 0.5), -0.2 + i * 0.08, 0.08, 1.5, g, true); ring.rotation.z = Math.PI / 2; }
+  g = add('rakel', new THREE.Group()); pole(g); box(0.62, 0.07, 0.04, steel, 0, 0.05, 1.52, g);
+  g = add('squeegee', new THREE.Group()); pole(g); box(0.6, 0.08, 0.05, dark, 0, 0.05, 1.52, g);
+  // baldes
+  // latas de químicos: amarelas, sem logótipos
+  const pail = (gg, x, y, z, col = '#F2C11D') => { cyl(0.15, 0.3, mat(col, 0.45), x, y, z, gg); cyl(0.153, 0.04, mat(col === '#F2C11D' ? '#D9A70E' : '#8A9097', 0.5), x, y + 0.13, z, gg); };
+  g = add('bucket', new THREE.Group()); pail(g, 0.38, 0.38, 0.05);
+  g = add('bucketPour', new THREE.Group()); pail(g, 0, 0.75, 0.55); g.children.forEach(m => { m.rotation.x = 1.1; });
+  g = add('mixer', new THREE.Group()); pail(g, 0, 0.15, 0.55); box(0.12, 0.28, 0.12, yellow, 0, 0.95, 0.5, g); box(0.5, 0.04, 0.04, dark, 0, 1.0, 0.5, g);
+  const shaft = cyl(0.015, 0.75, steel, 0, 0.5, 0.52, g); shaft.name = 'shaft';
+  // pequenos
+  g = add('meter', new THREE.Group()); box(0.09, 0.14, 0.04, dark, 0.1, 0.62, 0.42, g); box(0.07, 0.07, 0.01, mat('#7FD4A8', 0.3), 0.1, 0.64, 0.445, g);
+  g = add('hammer', new THREE.Group()); box(0.03, 0.03, 0.3, dark, 0.15, 0.25, 0.5, g); box(0.08, 0.06, 0.06, steel, 0.15, 0.25, 0.66, g);
+  g = add('trowel', new THREE.Group()); box(0.12, 0.012, 0.22, steel, 0.1, 0.06, 0.5, g); pail(g, -0.35, 0.15, 0.35, '#E9ECEF');
+  g = add('tape', new THREE.Group()); const tp = mesh(new THREE.TorusGeometry(0.06, 0.025, 8, 16), mat('#F1D48A', 0.6), 0.32, 0.65, 0.2, g); tp.rotation.y = Math.PI / 2;
+  g = add('sandbucket', new THREE.Group()); pail(g, -0.32, 0.55, 0.15, '#E9ECEF');
+  g = add('sandbag', new THREE.Group()); mesh(G.rbox(0.36, 0.5, 0.18, 0.06), mat('#D9CBA6', 0.9), -0.3, 0.62, 0.05, g);
+  g = add('lamp', new THREE.Group()); box(0.5, 0.05, 0.06, mat('#F6F3D8', 0.2), 0, 0.12, 0.5, g);
+  g = add('clipboard', new THREE.Group()); box(0.22, 0.3, 0.02, mat('#C79B5B', 0.6), 0.05, 0.95, 0.3, g).rotation.x = -0.6;
+  g = add('box', new THREE.Group()); mesh(G.rbox(0.42, 0.3, 0.32, 0.03), mat('#C2A57A', 0.8), 0, 0.92, 0.32, g);
+  g = add('liner', new THREE.Group()); pole(g, 1.3); const r3 = cyl(0.05, 0.14, mat('#F5F5F2', 0.6), 0, 0.06, 1.42, g); r3.rotation.z = Math.PI / 2;
+  g = add('phone', new THREE.Group()); box(0.04, 0.14, 0.08, dark, 0.27, 1.62, 0.04, g);
+  return T;
+}
+
+/* ---------- Sprinter (branca, sem logótipos) ---------- */
+const vanGeo = (() => {
+  const s = new THREE.Shape();
+  [[-2.95, 0.42], [2.95, 0.42], [3.02, 0.7], [2.98, 1.12], [2.3, 1.36], [1.55, 2.42], [1.25, 2.72], [-2.95, 2.72]].forEach(([x, y], i) => (i ? s.lineTo(x, y) : s.moveTo(x, y)));
+  const g = new THREE.ExtrudeGeometry(s, { depth: 1.9, bevelEnabled: true, bevelSize: 0.07, bevelThickness: 0.07, bevelSegments: 2 });
+  g.translate(0, 0, -0.95);
+  return g;
+})();
+function makeVan() {
+  const g = new THREE.Group(), white = mat('#F3F5F7', 0.38, 0.1), glass = mat('#2B3946', 0.15, 0.3), dark = mat('#23282E', 0.75), light = mat('#FDF6D8', 0.2);
+  mesh(vanGeo, white, 0, 0, 0, g);
+  const ws = box(0.04, 1.15, 1.75, glass, 1.93, 1.88, 0, g); ws.rotation.z = -0.96;
+  [-1, 1].forEach(sd => {
+    box(0.75, 0.62, 0.02, glass, 1.75, 1.95, sd * 1.03, g);
+    box(1.2, 0.02, 0.02, dark, -0.3, 1.0, sd * 1.03, g);  // calha da porta de correr
+    box(5.9, 0.16, 0.02, mat('#D9DDE1', 0.5), 0, 0.58, sd * 1.03, g);
+  });
+  box(0.05, 0.36, 1.4, dark, 3.02, 0.86, 0, g); box(0.05, 0.12, 0.3, light, 2.98, 1.08, 0.72, g); box(0.05, 0.12, 0.3, light, 2.98, 1.08, -0.72, g);
+  box(0.06, 0.26, 2.0, dark, 3.04, 0.5, 0, g); box(0.06, 0.26, 2.0, dark, -3.0, 0.5, 0, g);
+  [[2.0, 1], [2.0, -1], [-1.95, 1], [-1.95, -1]].forEach(([x, z]) => { const w = cyl(0.39, 0.28, dark, x, 0.39, z * 0.93, g); w.rotation.x = Math.PI / 2; const h = cyl(0.2, 0.3, mat('#B9C0C6', 0.4, 0.5), x, 0.39, z * 0.93, g); h.rotation.x = Math.PI / 2; });
+  g.scale.setScalar(1.12);
+  return g;
+}
+
+/* =====================================================================
+   Construção de cada obra
+   ===================================================================== */
+const world = new THREE.Group(); scene.add(world);
+const road = new THREE.Group(); world.add(road);
+(() => {
+  const asph = mat('#5E656C', 0.95);
+  const r = box(200, 0.04, 7, asph, 45, 0.0, 33.5, road); r.castShadow = false;
+  for (let x = -50; x < 140; x += 6) { const d = box(2.6, 0.01, 0.18, mat('#F2F3F1', 0.6), x, 0.03, 33.5, road); d.castShadow = false; }
+})();
+
+function buildSite(S) {
+  S.g = new THREE.Group(); S.g.position.x = S.ox; world.add(S.g);
+  S.nx = Math.round(S.W / CELL); S.nz = Math.round(S.D / CELL); S.N = S.nx * S.nz;
+  const R = rng(S.seed), g = S.g;
+  // plataforma exterior
+  const apron = box(S.W + 14, 0.3, S.D + 18, mat('#B4BBC0', 0.95), S.W / 2, -0.17, S.D / 2 + 5, g); apron.castShadow = false;
+  const slab = box(S.W + 0.6, 0.32, S.D + 0.6, mat('#9EA2A3', 0.9), S.W / 2, -0.15, S.D / 2, g); slab.castShadow = false;
+  // pavimento pintado por células
+  S.cv = document.createElement('canvas'); S.cv.width = S.nx * PX; S.cv.height = S.nz * PX; S.cx = S.cv.getContext('2d');
+  S.rv = document.createElement('canvas'); S.rv.width = S.nx; S.rv.height = S.nz; S.rx = S.rv.getContext('2d');
+  S.tex = new THREE.CanvasTexture(S.cv); S.tex.encoding = THREE.sRGBEncoding; S.tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  S.rtex = new THREE.CanvasTexture(S.rv);
+  const fm = new THREE.MeshStandardMaterial({ map: S.tex, roughnessMap: S.rtex, roughness: 1, metalness: 0, envMapIntensity: 0.6 });
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(S.W, S.D), fm);
+  floor.rotation.x = -Math.PI / 2; floor.position.set(S.W / 2, 0.012, S.D / 2); floor.receiveShadow = true; g.add(floor);
+  // paredes: duas altas atrás, duas baixas à frente (corte de maquete)
+  const wallM = mat(S.kind === 'garage' ? '#B2B6B8' : '#E2E6E9', 0.85);
+  box(S.W + 0.5, S.wallH, 0.25, wallM, S.W / 2, S.wallH / 2, -0.125, g);
+  box(0.25, S.wallH, S.D + 0.5, wallM, -0.125, S.wallH / 2, S.D / 2, g);
+  box(0.25, 0.35, S.D + 0.5, wallM, S.W + 0.125, 0.175, S.D / 2, g);
+  box(S.door[0], 0.35, 0.25, wallM, S.door[0] / 2, 0.175, S.D + 0.125, g);
+  box(S.W - S.door[1], 0.35, 0.25, wallM, (S.W + S.door[1]) / 2, 0.175, S.D + 0.125, g);
+  if (S.kind === 'hall') {
+    const blueM = mat('#3D6FB6', 0.45), frameM = mat('#2E4F80', 0.5), glassM = mat('#A9C4DE', 0.15, 0.2);
+    for (let i = 0; i < 4; i++) { const x = 4 + i * 7; box(3.4, 3.6, 0.08, blueM, x, 1.8, 0.04, g); box(3.7, 0.18, 0.14, frameM, x, 3.65, 0.06, g); for (let k = 1; k < 6; k++) box(3.4, 0.03, 0.1, frameM, x, k * 0.6, 0.09, g); }
+    for (let i = 0; i < 5; i++) box(0.1, 0.9, 2.6, glassM, 0.06, 3.9, 2.2 + i * 3.3, g);
+    for (let i = 1; i < 6; i++) box(0.3, S.wallH, 0.3, mat('#D7DCDF', 0.7), i * 5, S.wallH / 2, 0.15, g);
+  } else {
+    S.columns = [];
+    for (const cx of [7, 14, 21]) for (const cz of [5.5, 10.5]) { box(0.45, S.wallH, 0.45, mat('#B3B7B8', 0.85), cx, S.wallH / 2, cz, g); S.columns.push({ x: cx, z: cz }); }
+    const st = mat('#F2C230', 0.5); for (let i = 0; i < 6; i++) box(0.3, 0.12, 0.5, i % 2 ? st : mat('#2A2F35', 0.6), 1.5 + i * 0.32, 0.06, S.D + 0.5, g);
+    // rampa de acesso ao lado
+    const ramp = box(5, 0.3, 9, mat('#9DA1A2', 0.9), S.W + 4.2, -0.05, S.D / 2 + 1, g); ramp.rotation.x = 0.0;
+    // lugares de estacionamento (aparecem na marcação)
+    S.stalls = []; S.lineMeshes = [];
+    const lm = mat('#F7F7F3', 0.5);
+    for (let k = 1; k < 11; k++) { S.stalls.push({ x: k * 2.5, z0: 0.3, z1: 5 }); }
+    for (let k = 1; k < 11; k++) { S.stalls.push({ x: k * 2.5, z0: S.D - 0.3, z1: S.D - 5 }); }
+    S.stalls.forEach(L => { const m = box(0.12, 0.01, 1, lm, L.x, 0.025, 0, g); m.castShadow = false; m.visible = false; S.lineMeshes.push(m); });
+  }
+  // posto de mistura (plástico azul, paletes, baldes, sacos)
+  const st = S.mixSpot(0);
+  const foil = box(4.2, 0.02, 3, mat('#7FB3D9', 0.35), st.x + 0.6, 0.02, st.z + 0.2, g); foil.castShadow = false;
+  box(1.2, 0.14, 1.0, mat('#B98F5B', 0.85), st.x + 1.8, 0.09, st.z + 0.6, g);
+  for (let i = 0; i < 6; i++) { const big = i < 3, x = st.x + 1.45 + (i % 3) * 0.36, z = st.z + 0.35 + Math.floor(i / 3) * 0.45; cyl(big ? 0.17 : 0.12, big ? 0.36 : 0.24, mat('#F2C11D', 0.45), x, big ? 0.34 : 0.28, z, g); cyl(big ? 0.172 : 0.122, 0.04, mat('#D9A70E', 0.5), x, big ? 0.53 : 0.41, z, g); }
+  for (let i = 0; i < 3; i++) mesh(G.rbox(0.62, 0.16, 0.42, 0.05), mat('#D9CBA6', 0.9), st.x - 1.0, 0.1 + i * 0.16, st.z + 0.9, g);
+  // despoeirador da granalhadora
+  S.collector = new THREE.Group(); g.add(S.collector);
+  mesh(G.rbox(0.9, 1.5, 1.0, 0.06), mat('#E0B320', 0.5), 0, 0.85, 0, S.collector); cyl(0.12, 0.5, mat('#2C333B'), 0, 1.75, 0, S.collector);
+  S.collector.position.set(S.door[0] - 1.6, 0, S.D + 1.5);
+  S.hose = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), new THREE.LineBasicMaterial({ color: 0x2c333b }));
+  S.hose.frustumCulled = false; g.add(S.hose);
+  // desumidificador (garagem)
+  if (S.kind === 'garage') { S.dehum = mesh(G.rbox(0.6, 0.9, 0.5, 0.05), mat('#E6E9EC', 0.45), 2, 0.45, S.D - 1.4, g); box(0.4, 0.3, 0.02, mat('#5A6672', 0.4), 0, 0.15, 0.26, S.dehum); }
+  // vedação de fita (cura)
+  S.barrier = new THREE.Group(); g.add(S.barrier);
+  const tapeTex = (() => { const c = document.createElement('canvas'); c.width = 64; c.height = 8; const x = c.getContext('2d'); for (let i = 0; i < 8; i++) { x.fillStyle = i % 2 ? '#FFFFFF' : '#D2342A'; x.fillRect(i * 8, 0, 8, 8); } const t = new THREE.CanvasTexture(c); t.wrapS = THREE.RepeatWrapping; t.encoding = THREE.sRGBEncoding; return t; })();
+  const dw = S.door[1] - S.door[0] + 1;
+  [S.door[0] - 0.5, S.door[1] + 0.5].forEach(x => cyl(0.04, 1.0, mat('#E8562A', 0.5), x, 0.5, S.D + 0.7, S.barrier));
+  const tm2 = new THREE.MeshStandardMaterial({ map: tapeTex, roughness: 0.5, side: THREE.DoubleSide }); tm2.map.repeat.set(dw * 2, 1);
+  const tapeM = new THREE.Mesh(new THREE.PlaneGeometry(dw, 0.08), tm2); tapeM.position.set((S.door[0] + S.door[1]) / 2, 0.92, S.D + 0.7); S.barrier.add(tapeM);
+  const sign = new THREE.Group(); sign.position.set((S.door[0] + S.door[1]) / 2, 0, S.D + 1.3); S.barrier.add(sign);
+  [-1, 1].forEach(sd => { const p = box(0.6, 0.8, 0.03, mat('#F2C230', 0.5), 0, 0.4, sd * 0.15, sign); p.rotation.x = sd * 0.2; });
+  // pontos de medição / inspeção e fissuras
+  S.measurePts = [{ x: 5, z: 4 }, { x: S.W * 0.5, z: S.D * 0.35 }, { x: S.W - 5, z: S.D * 0.55 }, { x: S.W * 0.3, z: S.D - 4 }];
+  S.inspectPts = [{ x: S.W - 6, z: S.D - 4 }, { x: S.W * 0.6, z: S.D * 0.4 }, { x: 6, z: 5 }, { x: 4, z: S.D - 5 }, { x: S.door[0] + 1, z: S.D - 1.5 }];
+  S.cracks = [];
+  const nCr = S.kind === 'garage' ? 7 : 6;
+  for (let i = 0; i < nCr; i++) {
+    let x = 3 + R() * (S.W - 6), z = 2.5 + R() * (S.D - 5), a = R() * Math.PI; const pts = [{ x, z }];
+    const segs = 4 + Math.floor(R() * 4);
+    for (let k = 0; k < segs; k++) { a += (R() - 0.5) * 1.1; x = clamp(x + Math.cos(a) * 0.7, 1, S.W - 1); z = clamp(z + Math.sin(a) * 0.7, 1, S.D - 1); pts.push({ x, z }); }
+    const cx = pts.reduce((s, p) => s + p.x, 0) / pts.length, cz = pts.reduce((s, p) => s + p.z, 0) / pts.length;
+    S.cracks.push({ pts, cx, cz, hole: R() < 0.3 });
+  }
+  // ruído de betão e manchas por célula
+  S.shade = new Float32Array(S.N); S.stain = new Float32Array(S.N); S.crackCells = new Map();
+  const coarse = [], cw = Math.ceil(S.nx / 6) + 2, ch = Math.ceil(S.nz / 6) + 2;
+  for (let i = 0; i < cw * ch; i++) coarse.push(R());
+  const cn = (x, z) => { const gx = x / 6, gz = z / 6, ix = Math.floor(gx), iz = Math.floor(gz), fx = gx - ix, fz = gz - iz, v = (a, b) => coarse[(b) * cw + a] ?? 0.5; return lerp(lerp(v(ix, iz), v(ix + 1, iz), fx), lerp(v(ix, iz + 1), v(ix + 1, iz + 1), fx), fz); };
+  const spots = Array.from({ length: S.kind === 'garage' ? 9 : 4 }, () => ({ x: R() * S.nx, z: R() * S.nz, r: 2 + R() * 4 }));
+  for (let i = 0; i < S.N; i++) {
+    const ix = i % S.nx, iz = Math.floor(i / S.nx);
+    S.shade[i] = cn(ix, iz);
+    for (const sp of spots) { const d = Math.hypot(ix - sp.x, iz - sp.z); if (d < sp.r) S.stain[i] = Math.max(S.stain[i], (1 - d / sp.r) * 0.45); }
+  }
+  S.cracks.forEach((k, ci) => {
+    for (let s = 1; s < k.pts.length; s++) {
+      const a = k.pts[s - 1], b = k.pts[s];
+      for (let u = 0; u <= 1; u += 0.1) {
+        const x = lerp(a.x, b.x, u), z = lerp(a.z, b.z, u), i = Math.floor(z / CELL) * S.nx + Math.floor(x / CELL);
+        if (i >= 0 && i < S.N) { if (!S.crackCells.has(i)) S.crackCells.set(i, new Set()); S.crackCells.get(i).add(ci); }
+      }
+    }
+  });
+}
+
+/* Posições derivadas de cada obra (em coordenadas locais) */
+SITES.forEach(S => {
+  S.mixSpot = slot => ({ x: (S.door[0] + S.door[1]) / 2 + (slot ? 1.4 : -0.4), z: S.D + 2.6 });
+  S.vanSpot = i => ({ x: S.door[0] - 8.6 + i * 3.4, z: S.D + 7.8 });
+  // porta de correr do lado direito (+x), logo atrás da cabine
+  S.vanDoor = i => { const v = S.vanSpot(i); return { x: v.x + 1.7, z: v.z - 0.7 }; };
+});
+
+/* =====================================================================
+   Compilação: horários, células, leituras
+   ===================================================================== */
+function compileSite(S) {
+  S.phases.forEach((ph, idx) => {
+    ph.idx = idx; ph.dur = ph.end - ph.start;
+    ph.ops = typeof ph.ops === 'function' ? ph.ops(S) : ph.ops;
+    ph.crewFns = ph.crew ? ph.crew(S) : {};
+    ph.readingDefs = ph.readings ? ph.readings(S) : [];
+  });
+  S.start = S.phases[0].start; S.end = S.phases[S.phases.length - 1].end;
+  // tempo em que cada célula recebe cada camada
+  S.bitTime = {}; BITS.forEach(b => { S.bitTime[b] = new Float32Array(S.N).fill(Infinity); });
+  const inCol = (x, z) => (S.columns || []).some(c => Math.abs(c.x - x) < 0.3 && Math.abs(c.z - z) < 0.3);
+  S.phases.forEach(ph => ph.ops.forEach(op => {
+    const arr = S.bitTime[op.bit];
+    for (let i = 0; i < S.N; i++) {
+      const x = (i % S.nx + 0.5) * CELL, z = (Math.floor(i / S.nx) + 0.5) * CELL;
+      if (!op.path.inside(x, z) || inCol(x, z)) continue;
+      const t = ph.start + (op.win[0] + op.path.ord(x, z) * (op.win[1] - op.win[0])) * ph.dur;
+      if (t < arr[i]) arr[i] = t;
+    }
+  }));
+  // reparação: hora em que cada fissura é tapada
+  const rp = S.phases.find(p => p.id === 'repair');
+  S.crackTime = S.cracks.map(() => Infinity);
+  if (rp) {
+    const fx = rp.rep.fixers;
+    fx.forEach((w, j) => {
+      const mine = S.cracks.map((k, i) => i).filter(i => i % fx.length === j);
+      mine.forEach((ci, n) => { S.crackTime[ci] = rp.start + ((n + 0.35 + 0.4 * 0.65) / mine.length) * rp.dur; });
+    });
+    S.crackCells.forEach((set, i) => { let t = Infinity; set.forEach(ci => { t = Math.min(t, S.crackTime[ci]); }); S.bitTime[B.REP][i] = t; });
+  }
+  // linhas de estacionamento
+  const ho = S.phases.find(p => p.id === 'handover');
+  if (ho && ho.lines) {
+    S.lineTimes = S.stalls.map((L, i) => {
+      const j = i % ho.lines.length, mine = S.stalls.filter((_, k) => k % ho.lines.length === j), n = mine.indexOf(L);
+      return { a: ho.start + (n / mine.length) * 0.85 * ho.dur, b: ho.start + ((n + 1) / mine.length) * 0.85 * ho.dur };
+    });
+  }
+  // leituras
+  const cms = [...S.values.cm];
+  S.readings = [];
+  S.phases.forEach(ph => ph.readingDefs.forEach(r => {
+    const t = ph.start + r.frac * ph.dur;
+    let v;
+    if (r.kind === 'cm') v = cms.shift() ?? S.values.cm[0];
+    else if (r.kind === 'po') v = S.values.po;
+    else if (r.kind === 'wft') v = S.values.wft[S.readings.filter(x => x.kind === 'wft').length] ?? 2.0;
+    S.readings.push({ t, who: r.who, kind: r.kind, v, ph: ph.short });
+  }));
+  // contagem de células por camada (para áreas e consumos)
+  S.totals = {}; BITS.forEach(b => { S.totals[b] = S.bitTime[b].reduce((n, t) => n + (t < Infinity ? 1 : 0), 0); });
+  S.code = new Int32Array(S.N).fill(-1);
+  S.done = {}; S.dirty = true; S.lastUpload = 0;
+  S.cur = null; S.lastIdx = -2; S.chat = { next: 2, queue: [], wait: 0, used: new Set() };
+}
+
+function phaseAt(S, t) { for (const ph of S.phases) if (t >= ph.start && t < ph.end) return ph; return null; }
+function climate(S, t) {
+  const c = S.climate, h = (t % 1440) / 60, k = Math.sin((h - 9) / 24 * Math.PI * 2);
+  let rh = c.rh - c.rhAmp * k; if (c.dryAt != null && t >= c.dryAt) rh -= c.dryDrop * smooth(c.dryAt, c.dryAt + 90, t);
+  const air = c.air + c.airAmp * k, sub = c.sub + c.subAmp * Math.sin((h - 11) / 24 * Math.PI * 2), td = dewPoint(air, rh);
+  return { air, rh, sub, td, m: sub - td };
+}
+const dewState = m => (m >= 4 ? ['ok', 'OK'] : m >= 3 ? ['warn', 'Vigiar'] : ['crit', 'Não aplicar']);
+
+/* =====================================================================
+   Pintura do pavimento
+   ===================================================================== */
+function hexRGB(h) { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
+const rgb = (c, k = 1) => `rgb(${clamp(c[0] * k, 0, 255) | 0},${clamp(c[1] * k, 0, 255) | 0},${clamp(c[2] * k, 0, 255) | 0})`;
+function paintCell(S, i, code) {
+  const ctx = S.cx, x = (i % S.nx) * PX, y = Math.floor(i / S.nx) * PX, R = rng(S.seed * 7919 + i * 31), sh = S.shade[i];
+  let rough;
+  const dots = (n, col, sz = 1) => { ctx.fillStyle = col; for (let k = 0; k < n; k++) ctx.fillRect(x + R() * PX, y + R() * PX, sz, sz); };
+  if (code & B.BLAST) { const v = 186 + sh * 14; ctx.fillStyle = rgb([v, v - 1, v - 6]); ctx.fillRect(x, y, PX, PX); dots(7, 'rgba(120,118,112,.55)'); dots(4, 'rgba(235,233,226,.6)'); rough = 0.95; }
+  else {
+    const v = 160 + sh * 22; ctx.fillStyle = rgb([v, v - 1, v - 6]); ctx.fillRect(x, y, PX, PX);
+    if (S.stain[i] > 0) { ctx.fillStyle = `rgba(74,66,54,${S.stain[i]})`; ctx.fillRect(x, y, PX, PX); }
+    dots(3, 'rgba(255,255,255,.18)', 2); rough = 0.8;
+  }
+  if (S.crackCells.has(i) && !(code & B.COAT)) {
+    ctx.save(); ctx.beginPath(); ctx.rect(x, y, PX, PX); ctx.clip();
+    S.crackCells.get(i).forEach(ci => {
+      const k = S.cracks[ci], fixed = code & B.REP;
+      ctx.strokeStyle = fixed ? 'rgba(96,100,104,.95)' : 'rgba(40,36,32,.9)'; ctx.lineWidth = fixed ? 3.2 : 1.4; ctx.lineCap = 'round';
+      ctx.beginPath(); k.pts.forEach((p, n) => { const px = p.x / CELL * PX, pz = p.z / CELL * PX; n ? ctx.lineTo(px, pz) : ctx.moveTo(px, pz); }); ctx.stroke();
+      if (k.hole) { const p = k.pts[0]; ctx.fillStyle = fixed ? 'rgba(96,100,104,.95)' : 'rgba(40,36,32,.85)'; ctx.beginPath(); ctx.arc(p.x / CELL * PX, p.z / CELL * PX, fixed ? 5 : 4, 0, 7); ctx.fill(); }
+    });
+    ctx.restore();
+  }
+  if ((code & B.BLAST) && !(code & B.VAC) && !(code & B.PRIM)) { dots(10, 'rgba(238,235,226,.75)', 2); rough = 1; }
+  if (code & B.PRIM) { ctx.fillStyle = 'rgba(132,82,14,.5)'; ctx.fillRect(x, y, PX, PX); rough = 0.22; }
+  if ((code & B.SAND) && !(code & B.COAT)) { dots(4, 'rgba(232,220,190,.8)'); rough = 0.55; }
+  if (code & B.COAT) {
+    const c = hexRGB(S.coat), wet = code & B.WETC;
+    ctx.fillStyle = rgb(c, wet ? 0.9 : 1); ctx.fillRect(x, y, PX, PX);
+    rough = wet ? 0.1 : 0.24;
+    if (!(code & B.ROLL)) { dots(6, 'rgba(255,255,255,.85)'); }
+  }
+  if (code & B.QUARTZ) {
+    if (!(code & B.SWEPT)) { ctx.fillStyle = '#D6C7A0'; ctx.fillRect(x, y, PX, PX); dots(14, 'rgba(150,135,100,.6)'); dots(10, 'rgba(250,244,226,.8)'); rough = 1; }
+    else { const c = hexRGB(S.coat); ctx.fillStyle = rgb(c, 1.04); ctx.fillRect(x, y, PX, PX); dots(16, 'rgba(214,199,160,.75)'); dots(8, 'rgba(70,72,70,.35)'); rough = 0.9; }
+  }
+  if (code & B.SEAL) {
+    const c = hexRGB(S.seal || S.coat), wet = code & B.WETS;
+    ctx.fillStyle = `rgba(${c[0]},${c[1]},${c[2]},${wet ? 0.8 : 0.72})`; ctx.fillRect(x, y, PX, PX);
+    dots(6, 'rgba(225,215,190,.35)');
+    rough = wet ? 0.08 : 0.42;
+  }
+  const r = Math.round(rough * 255); S.rx.fillStyle = `rgb(${r},${r},${r})`; S.rx.fillRect(i % S.nx, Math.floor(i / S.nx), 1, 1);
+}
+function updateFloor(S, t, force) {
+  let changed = false;
+  const counts = {}; BITS.forEach(b => { counts[b] = 0; });
+  for (let i = 0; i < S.N; i++) {
+    let code = 0;
+    for (const b of BITS) { const bt = S.bitTime[b][i]; if (t >= bt) { code |= b; counts[b]++; } }
+    if (code & B.COAT && t < S.bitTime[B.COAT][i] + WET_MIN) code |= B.WETC;
+    if (code & B.SEAL && t < S.bitTime[B.SEAL][i] + WET_MIN) code |= B.WETS;
+    if (code !== S.code[i] || force) { S.code[i] = code; paintCell(S, i, code); changed = true; }
+  }
+  S.done = counts;
+  if (changed) S.dirty = true;
+}
+
+/* =====================================================================
+   Pessoas, carrinhas e partículas em cena
+   ===================================================================== */
+const people = new Map();
+CREW.forEach(c => {
+  const P = makePerson(c); P.c = c; P.tools = makeTools(P); P.pos = new THREE.Vector3(); P.yaw = 0; P.step = 0; P.present = false; P.tool = null; P.state = null; P.say = null;
+  P.root.visible = false; world.add(P.root); P.hit.userData.person = c.id; people.set(c.id, P);
+});
+const vans = FLEET.map(v => { const g = makeVan(); g.visible = false; world.add(g); return { ...v, g, status: 'No Magazin' }; });
+const ring = new THREE.Mesh(new THREE.RingGeometry(0.55, 0.72, 32), new THREE.MeshBasicMaterial({ color: 0xd9530f, transparent: true, opacity: 0.9, depthWrite: false }));
+ring.rotation.x = -Math.PI / 2; ring.visible = false; world.add(ring);
+
+const PMAX = 900;
+const parts = { pos: new Float32Array(PMAX * 3), col: new Float32Array(PMAX * 3), v: new Float32Array(PMAX * 3), life: new Float32Array(PMAX), n: 0 };
+const pGeo = new THREE.BufferGeometry();
+pGeo.setAttribute('position', new THREE.BufferAttribute(parts.pos, 3).setUsage(THREE.DynamicDrawUsage));
+pGeo.setAttribute('color', new THREE.BufferAttribute(parts.col, 3).setUsage(THREE.DynamicDrawUsage));
+const dotTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 32; const x = c.getContext('2d'); const gr = x.createRadialGradient(16, 16, 0, 16, 16, 16); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = gr; x.fillRect(0, 0, 32, 32); return new THREE.CanvasTexture(c); })();
+const pts = new THREE.Points(pGeo, new THREE.PointsMaterial({ size: 0.28, map: dotTex, vertexColors: true, transparent: true, depthWrite: false, opacity: 0.85 }));
+pts.frustumCulled = false; world.add(pts);
+let pCursor = 0;
+function emit(x, y, z, vx, vy, vz, r, g, b, life) {
+  const i = pCursor; pCursor = (pCursor + 1) % PMAX;
+  parts.pos.set([x, y, z], i * 3); parts.v.set([vx, vy, vz], i * 3); parts.col.set([r, g, b], i * 3); parts.life[i] = life;
+}
+function updateParticles(dt) {
+  for (let i = 0; i < PMAX; i++) {
+    if (parts.life[i] <= 0) { parts.pos[i * 3 + 1] = -50; continue; }
+    parts.life[i] -= dt;
+    parts.v[i * 3 + 1] -= 3.2 * dt * (parts.col[i * 3] > 0.8 ? 1 : 0.15);
+    for (let k = 0; k < 3; k++) parts.pos[i * 3 + k] += parts.v[i * 3 + k] * dt;
+    if (parts.pos[i * 3 + 1] < 0.03) { parts.pos[i * 3 + 1] = 0.03; parts.v[i * 3] *= 0.5; parts.v[i * 3 + 2] *= 0.5; parts.v[i * 3 + 1] = 0; }
+  }
+  pGeo.attributes.position.needsUpdate = true; pGeo.attributes.color.needsUpdate = true;
+}
+
+/* =====================================================================
+   Estado global e simulação
+   ===================================================================== */
+const state = { t: tm('1 06:40'), speed: 1, focus: 'A', sel: 'renato', follow: false, done: false, doneAt: 0, tr: true, log: [] };
+SITES.forEach(S => { buildSite(S); compileSite(S); updateFloor(S, state.t, true); });
+const T0 = tm('1 06:40'), TEND = Math.max(...SITES.map(S => S.end)) + 20;
+
+// janelas de trabalho por dia → horários das carrinhas
+SITES.forEach(S => {
+  const days = new Map();
+  S.phases.filter(p => !p.idle).forEach(p => { const d = Math.floor(p.start / 1440), w = days.get(d) || [Infinity, -Infinity]; days.set(d, [Math.min(w[0], p.start), Math.max(w[1], p.end)]); });
+  S.days = [...days.values()];
+});
+const DRIVE = 22;
+function vanPose(S, slot, t) {
+  const spot = S.vanSpot(slot), roadZ = 31.9, yawOf = (hx, hz) => Math.atan2(-hz, hx);
+  for (const [a, b] of S.days) {
+    const arr0 = a - DRIVE - slot * 4, arr1 = a - slot * 4, dep0 = b + slot * 4, dep1 = dep0 + DRIVE;
+    if (t < arr0 || t > dep1) continue;
+    if (t < arr1) {
+      // chega pela estrada (de oeste) e entra de frente no lugar
+      const P = polyPath([{ x: spot.x - 40, z: roadZ }, { x: spot.x - 6, z: roadZ }, { x: spot.x - 1, z: roadZ - 2 }, { x: spot.x, z: spot.z + 3.5 }, { x: spot.x, z: spot.z }]).at(smooth(0, 1, (t - arr0) / DRIVE));
+      return { x: P.x, z: P.z, yaw: yawOf(P.hx, P.hz), moving: true, status: 'A caminho da obra' };
+    }
+    if (t > dep0) {
+      const u = (t - dep0) / DRIVE;
+      if (u < 0.35) { // marcha-atrás até à estrada, a frente acaba virada para leste
+        const P = polyPath([{ x: spot.x, z: spot.z }, { x: spot.x, z: spot.z + 3 }, { x: spot.x - 3.5, z: roadZ }]).at(smooth(0, 1, u / 0.35));
+        return { x: P.x, z: P.z, yaw: yawOf(-P.hx, -P.hz), moving: true, status: 'A regressar ao Magazin' };
+      }
+      const k = smooth(0, 1, (u - 0.35) / 0.65);
+      return { x: lerp(spot.x - 3.5, spot.x + 50, k), z: roadZ, yaw: 0, moving: true, status: 'A regressar ao Magazin' };
+    }
+    return { x: spot.x, z: spot.z, yaw: Math.PI / 2, moving: false, status: `Na ${S.title.split(' · ')[0].toLowerCase()}` };
+  }
+  return null;
+}
+
+function advance(dt) {
+  if (state.done || state.speed === 0) return;
+  const t = state.t;
+  const working = SITES.some(S => { const p = phaseAt(S, t); return p && !p.idle; });
+  const driving = SITES.some(S => [0, 1].some(sl => { const v = vanPose(S, sl, t); return v && v.moving; }));
+  const rate = (working || driving ? BASE_RATE : GAP_RATE) * state.speed;
+  let nt = t + dt * rate;
+  if (!working) {
+    // não saltar o início do trabalho nem a chegada das carrinhas
+    let nextEvt = Infinity;
+    SITES.forEach(S => { S.phases.forEach(p => { if (!p.idle && p.start > t) nextEvt = Math.min(nextEvt, p.start); }); S.days.forEach(([a]) => { const arr = a - DRIVE - 4; if (arr > t) nextEvt = Math.min(nextEvt, arr); }); });
+    if (nt > nextEvt) nt = nextEvt + 0.01;
+  }
+  // eventos que só disparam quando o tempo corre naturalmente
+  SITES.forEach(S => {
+    S.readings.forEach(r => { if (r.t > t && r.t <= nt) sayReading(S, r); });
+  });
+  CALLS.forEach(c => { if (c.t > t && c.t <= nt) startCall(c); });
+  state.t = nt;
+  if (state.t >= TEND) { state.t = TEND; finish(); }
+}
+
+/* ---------- pessoas por frame ---------- */
+const tmpV = new THREE.Vector3();
+function updatePeople(dt, snap) {
+  SITES.forEach(S => {
+    const ph = phaseAt(S, state.t), idx = ph ? ph.idx : -1;
+    if (idx !== S.lastIdx) {
+      if (S.lastIdx !== -2 && ph && !ph.idle) { S.chat.queue = []; S.chat.used.clear(); queueConvo(S, ph, 'start'); }
+      else if (S.lastIdx === -2 && ph && !ph.idle) { queueConvo(S, ph, 'start'); }
+      if (ph) addLog(S, null, 'pt', `Início: ${ph.name}`);
+      S.lastIdx = idx;
+    }
+    S.cur = ph;
+    S.p = ph ? clamp((state.t - ph.start) / ph.dur, 0, 1) : 0;
+  });
+  people.forEach((P, id) => {
+    const S = SITES.find(s => s.id === P.c.site), ph = S.cur, fn = ph && !ph.idle ? ph.crewFns[id] : null;
+    if (!fn) { if (P.present) { P.present = false; P.root.visible = false; } P.state = null; return; }
+    const st = fn({ p: S.p, t: state.t - ph.start, ph, S });
+    if (P.callUntil && performance.now() < P.callUntil) { st.anim = 'phone'; st.tool = 'phone'; st.task = 'Ao telefone com a Corinna'; }
+    P.state = st;
+    // desviar dos pilares
+    let tx = st.x, tz = st.z;
+    (S.columns || []).forEach(c => { const dx = tx - c.x, dz = tz - c.z, d = Math.hypot(dx, dz); if (d < 0.95) { const k = 0.95 / (d || 1); tx = c.x + dx * k; tz = c.z + dz * k; } });
+    tx += S.ox;
+    if (!P.present) { const dv = S.vanDoor(FLEET.find(f => f.site === S.id).slot); P.pos.set(dv.x + S.ox, 0, dv.z); P.present = true; P.root.visible = true; }
+    const dx = tx - P.pos.x, dz = tz - P.pos.z, d = Math.hypot(dx, dz);
+    const vmax = 14 * Math.max(state.speed, 0.5);
+    let moved = 0;
+    if (snap || d > 40) { P.pos.set(tx, 0, tz); }
+    else if (d > 0.001 && state.speed > 0) { moved = Math.min(d, vmax * dt); P.pos.x += dx / d * moved; P.pos.z += dz / d * moved; }
+    const speed = dt > 0 ? moved / dt : 0;
+    let yawT = P.yaw;
+    if (speed > 0.4 && st.face == null) yawT = Math.atan2(dx, dz);
+    else if (st.face != null) yawT = st.face;
+    let dy = ((yawT - P.yaw + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
+    P.yaw += dy * Math.min(1, dt * 8);
+    P.root.position.copy(P.pos); P.root.rotation.y = P.yaw;
+    animatePerson(P, st, speed, dt);
+    if (P.tool !== st.tool) { if (P.tool && P.tools[P.tool]) P.tools[P.tool].visible = false; if (st.tool && P.tools[st.tool]) P.tools[st.tool].visible = true; P.tool = st.tool; }
+    if (st.emit && state.speed > 0) emitFor(P, st.emit, dt);
+  });
+  // carrinhas
+  vans.forEach(v => {
+    const S = SITES.find(s => s.id === v.site), pose = vanPose(S, v.slot, state.t);
+    if (!pose) { v.g.visible = false; v.status = 'No Magazin'; return; }
+    v.g.visible = true; v.g.position.set(pose.x + S.ox, 0, pose.z); v.g.rotation.y = pose.yaw; v.status = pose.status;
+  });
+  // adereços por fase
+  SITES.forEach(S => {
+    const ph = S.cur, prepOn = ph && ph.id === 'prep';
+    S.collector.visible = prepOn;
+    S.hose.visible = prepOn;
+    if (prepOn) {
+      const P = people.get(ph.crewFns && Object.keys(ph.crewFns).find(k => ph.crewFns[k] && people.get(k).tool === 'blaster') || '');
+      if (P) {
+        const a = S.collector.position, bx = P.pos.x - S.ox + Math.sin(P.yaw) * 1.2, bz = P.pos.z + Math.cos(P.yaw) * 1.2;
+        const arr = S.hose.geometry.attributes.position.array; arr.set([a.x, 0.4, a.z, bx, 0.45, bz]); S.hose.geometry.attributes.position.needsUpdate = true;
+      }
+    }
+    const coatStart = Math.min(...S.phases.filter(p => p.id === 'primer' || p.id === 'selfLevel' || p.id === 'broadcast').map(p => p.start));
+    const ho = S.phases.find(p => p.id === 'handover');
+    S.barrier.visible = state.t > coatStart + 30 && state.t < ho.start && !(ph && !ph.idle);
+    if (S.dehum) S.dehum.visible = state.t >= S.climate.dryAt - 30 && state.t < ho.start;
+    if (S.lineMeshes) S.lineMeshes.forEach((m, i) => {
+      const lt = S.lineTimes[i], L = S.stalls[i], u = clamp((state.t - lt.a) / (lt.b - lt.a), 0, 1);
+      m.visible = u > 0; const len = Math.abs(L.z1 - L.z0) * u; m.scale.z = Math.max(len, 0.01); m.position.z = L.z0 + Math.sign(L.z1 - L.z0) * len / 2;
+    });
+  });
+}
+function animatePerson(P, st, speed, dt) {
+  const a = st.anim, walking = speed > 0.3;
+  if (walking) P.step += Math.min(speed * 2.3, 2.6 * Math.PI * 2) * dt;
+  const sw = walking ? Math.sin(P.step) * 0.55 : 0, now = performance.now() / 1000;
+  let hipY = 0.86, lL = sw, lR = -sw, aL = -sw * 0.8, aR = sw * 0.8, aLz = 0, aRz = 0;
+  if (a === 'push' || a === 'roll') { aL = aR = -1.0; }
+  if (a === 'carry') { aR = 0.05; aL = -sw * 0.6; aRz = 0.12; }
+  if (a === 'kneel') { hipY = 0.5; lL = -1.45; lR = 0.15; aL = aR = -0.9; }
+  if (a === 'mix') { aL = aR = -0.95; hipY = 0.84 + Math.sin(now * 9) * 0.006; }
+  if (a === 'pour') { aL = aR = -1.25; hipY = 0.8; }
+  if (a === 'throw') { aR = -1.4 + Math.sin(now * 5) * 1.0; aL = -0.5; }
+  if (a === 'phone') { aR = -2.6; aRz = 0.35; }
+  if (a === 'idle' && !walking) { hipY = 0.86 + Math.sin(now * 2 + P.pos.x) * 0.004; }
+  P.hip.position.y += (hipY - P.hip.position.y) * Math.min(1, dt * 10);
+  P.legL.rotation.x = lL; P.legR.rotation.x = lR;
+  P.shL.rotation.x = aL; P.shR.rotation.x = aR; P.shL.rotation.z = -aLz; P.shR.rotation.z = aRz;
+  // ferramentas animadas
+  const tl = P.tool && P.tools[P.tool];
+  if (tl && (P.tool === 'roller' || P.tool === 'spike' || P.tool === 'liner')) tl.position.z = Math.sin(now * 5 + P.pos.x) * 0.22;
+  if (tl && P.tool === 'mixer') { const sh = tl.getObjectByName('shaft'); if (sh) sh.rotation.y += dt * 30; }
+}
+function emitFor(P, kind, dt) {
+  const fx = Math.sin(P.yaw), fz = Math.cos(P.yaw), x = P.pos.x + fx * 1.25, z = P.pos.z + fz * 1.25, n = Math.random() < dt * 30 ? 1 : 0;
+  for (let k = 0; k < n * 2; k++) {
+    if (kind === 'dust') emit(x + (Math.random() - 0.5) * 0.6, 0.3, z + (Math.random() - 0.5) * 0.6, (Math.random() - 0.5) * 0.6, 0.5 + Math.random() * 0.5, (Math.random() - 0.5) * 0.6, 0.78, 0.77, 0.74, 1.4);
+    if (kind === 'spark') emit(x, 0.2, z, (Math.random() - 0.5) * 0.8, 0.4, (Math.random() - 0.5) * 0.8, 0.75, 0.74, 0.7, 0.8);
+  }
+  if (kind === 'sand' || kind === 'quartz') {
+    const m = kind === 'quartz' ? 5 : 2;
+    for (let k = 0; k < m; k++) if (Math.random() < dt * 18) {
+      const sx = P.pos.x + fx * 0.3 + Math.cos(P.yaw) * 0.3, sz = P.pos.z + fz * 0.3 - Math.sin(P.yaw) * 0.3;
+      emit(sx, 1.6, sz, fx * (1.2 + Math.random()) + (Math.random() - 0.5), 1.6 + Math.random(), fz * (1.2 + Math.random()) + (Math.random() - 0.5), 0.92, 0.86, 0.7, 1.3);
+    }
+  }
+}
+
+/* =====================================================================
+   Falas, balões, chamadas e registo
+   ===================================================================== */
+const bubblesEl = $('#bubbles');
+const bubbles = [];
+function fill(S, s, extra = {}) {
+  const c = climate(S, state.t), last = k => { const r = [...S.readings].reverse().find(x => x.kind === k && x.t <= state.t); return r ? r.v : S.values[k] && (S.values[k][0] ?? S.values[k]); };
+  const vals = { air: f1(c.air), sub: f1(c.sub), td: f1(c.td), rh: f0(c.rh), m: f1(c.m), cm: f1(last('cm') || 0), po: f1(last('po') || 0), wft: f1(last('wft') || 0), ...extra };
+  return s.replace(/\{(\w+)\}/g, (_, k) => vals[k] ?? '');
+}
+function say(S, who, lang, text, pt) {
+  const P = people.get(who); if (!P || !P.present) return;
+  text = fill(S, text); pt = pt ? fill(S, pt) : null;
+  const visibleSite = state.focus === 'all' || state.focus === S.id;
+  addLog(S, who, lang, text, pt);
+  P.lastLine = { lang, text, pt };
+  if (!visibleSite) return;
+  const max = isNarrow() ? 2 : 3;
+  while (bubbles.length >= max) removeBubble(bubbles[0]);
+  const el = document.createElement('div'); el.className = 'bubble';
+  el.innerHTML = `<div class="h"><span class="d" style="background:${P.c.helmet}"></span>${esc(P.c.name)}<span class="lang">${lang.toUpperCase()}</span></div>${esc(text)}${pt && lang !== 'pt' ? `<span class="tr">${esc(pt)}</span>` : ''}`;
+  bubblesEl.appendChild(el);
+  const b = { el, P, until: performance.now() + 4800 + text.length * 22 };
+  bubbles.push(b);
+}
+function removeBubble(b) { b.el.remove(); bubbles.splice(bubbles.indexOf(b), 1); }
+function queueConvo(S, ph, at) {
+  const pool = (TALK[S.id][ph.id] || []);
+  const c = pool.find(x => x.at === at && !S.chat.used.has(x));
+  if (!c) return false;
+  S.chat.used.add(c); S.chat.queue.push(...c.l); S.chat.wait = 0.6; return true;
+}
+function chatTick(S, dt) {
+  const ph = S.cur; if (!ph || ph.idle || state.speed === 0) return;
+  if (S.chat.queue.length) {
+    S.chat.wait -= dt;
+    if (S.chat.wait <= 0) { const [who, lang, text, pt] = S.chat.queue.shift(); say(S, who, lang, text, pt); S.chat.wait = 2.9; }
+    return;
+  }
+  S.chat.next -= dt; if (S.chat.next > 0) return;
+  S.chat.next = 6 + Math.random() * 5;
+  if (S.p > 0.82 && queueConvo(S, ph, 'end')) return;
+  const pool = (TALK[S.id][ph.id] || []).filter(c => !c.at && !S.chat.used.has(c));
+  if (!pool.length) return;
+  const c = pool[Math.floor(Math.random() * pool.length)]; S.chat.used.add(c); S.chat.queue.push(...c.l); S.chat.wait = 0;
+}
+function sayReading(S, r) {
+  const P = people.get(r.who), lang = r.who === 'jord' ? 'de' : 'pt', tpl = READ_TALK[lang][r.kind];
+  const v = r.kind === 'wft' ? f1(r.v) : f1(r.v);
+  if (P) say(S, r.who, lang, fill(S, tpl[0], { v }), tpl[1] ? fill(S, tpl[1], { v }) : null);
+  if (r.kind === 'dew') { const c = climate(S, state.t); r.v = c.m; }
+}
+function addLog(S, who, lang, text, pt) {
+  state.log.unshift({ site: S.id, t: state.t, who, lang, text, pt });
+  if (state.log.length > 80) state.log.length = 80;
+  ui.logDirty = true;
+}
+let callTimer = 0;
+function startCall(c) {
+  const S = SITES.find(s => s.id === c.site), P = people.get(c.to);
+  addLog(S, null, 'de', `Corinna (escritório) → ${P.c.name}: ${c.de}`, c.pt);
+  if (P) P.callUntil = performance.now() + 7000;
+  const slot = $('#call-slot');
+  slot.innerHTML = `<div class="call" role="status"><span class="av"><svg viewBox="0 0 20 20"><path d="M6.6 2.5 4.4 3.1c-.9.3-1.5 1.2-1.3 2.2.9 5.6 5 9.7 10.6 10.6 1 .2 1.9-.4 2.2-1.3l.6-2.2c.2-.6-.1-1.2-.7-1.5l-2.6-1.1c-.5-.2-1.1-.1-1.4.3l-.9 1c-1.8-.9-3.2-2.3-4.1-4.1l1-.9c.4-.4.5-.9.3-1.4L7.9 3.2c-.3-.6-.9-.9-1.3-.7Z"/></svg></span>
+    <div class="who"><b>Corinna</b> · escritório → ${esc(P.c.name)} (${esc(S.title.split(' · ')[0])}) <span class="lang">DE</span></div>
+    <div class="txt">${esc(c.de)}</div><div class="tr">${esc(c.pt)}</div></div>`;
+  clearTimeout(callTimer);
+  callTimer = setTimeout(() => { slot.innerHTML = ''; }, 9000);
+  setTimeout(() => { if (c.reply) S.chat.queue.unshift(c.reply, ...(c.reply2 ? [c.reply2] : [])); S.chat.wait = 0.3; }, 3400);
+}
+function placeBubbles() {
+  const w = canvas.clientWidth, h = canvas.clientHeight, now = performance.now();
+  for (let i = bubbles.length - 1; i >= 0; i--) {
+    const b = bubbles[i];
+    if (now > b.until || !b.P.present) { removeBubble(b); continue; }
+    tmpV.set(b.P.pos.x, (b.P.hip.position.y + 1.05) * CS, b.P.pos.z).project(camera);
+    const x = (tmpV.x * 0.5 + 0.5) * w, y = (-tmpV.y * 0.5 + 0.5) * h;
+    const off = tmpV.z > 1 || x < -40 || x > w + 40 || y < 0 || y > h + 40;
+    b.el.style.visibility = off ? 'hidden' : 'visible';
+    const bw = b.el.offsetWidth, cx = clamp(x, bw / 2 + 6, w - bw / 2 - 6);
+    b.el.style.transform = `translate(${cx - bw / 2}px, ${y - b.el.offsetHeight - 12}px)`;
+  }
+}
+
+/* =====================================================================
+   Câmara
+   ===================================================================== */
+const camGoal = { active: false, from: null, to: null, tf: null, tt: null, u: 0 };
+function framing(id) {
+  const w = Math.max(1, canvas.clientWidth), h = Math.max(1, canvas.clientHeight), narrow = isNarrow();
+  const tv = Math.tan(camera.fov * Math.PI / 360), th = tv * (w / h);
+  const x0 = id === 'B' ? SITES[1].ox : 0, x1 = id === 'A' ? SITES[0].W : SITES[1].ox + SITES[1].W, z1 = Math.max(SITES[0].D, SITES[1].D) + (narrow ? 6 : 9);
+  const W = x1 - x0, D = z1;
+  // camera heading (0.527, 0.85) horizontally, ~36° elevation
+  const pad = narrow ? 7 : 5, projW = 0.85 * W + 0.527 * D + pad, projH = (0.527 * W + 0.85 * D) * 0.59 + 4 * 0.81 + pad;
+  const uw = narrow ? 1 : (w - 404) / w, uh = narrow ? 0.8 : (h - 250) / h;
+  const dist = clamp(Math.max(projW / (2 * th * uw), projH / (2 * tv * uh)), 24, 185);
+  const target = new THREE.Vector3((x0 + x1) / 2, 0, D / 2);
+  if (!narrow) { const shiftM = 200 / (h / (2 * dist * tv)); target.x += 0.85 * shiftM; target.z -= 0.527 * shiftM; }
+  const dir = new THREE.Vector3(0.62, 0.86, 1.0).normalize();
+  return { pos: target.clone().addScaledVector(dir, dist), target };
+}
+function flyTo(id, instant) {
+  const f = framing(id);
+  if (instant || reduceMotion) { camera.position.copy(f.pos); controls.target.copy(f.target); camGoal.active = false; return; }
+  Object.assign(camGoal, { active: true, from: camera.position.clone(), to: f.pos, tf: controls.target.clone(), tt: f.target, u: 0 });
+}
+
+/* =====================================================================
+   Interface
+   ===================================================================== */
+const ui = { tab: 'crew', logDirty: true, acc: 0 };
+const nameOf = id => (people.get(id) ? people.get(id).c.name : id);
+function setFocus(id) {
+  state.focus = id;
+  document.querySelectorAll('#sites button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.site === id)));
+  bubbles.slice().forEach(removeBubble);
+  flyTo(id);
+  renderSteps();
+  ui.logDirty = true;
+  refreshUI(true);
+}
+function focusSite() { return SITES.find(s => s.id === (state.focus === 'all' ? (people.get(state.sel)?.c.site || 'A') : state.focus)); }
+
+function renderSteps() {
+  const S = focusSite(), ol = $('#steps');
+  $('#steps-title').textContent = `${S.title} · fases`;
+  $('#steps-sys').textContent = S.system;
+  ol.innerHTML = S.phases.map((p, i) => `<li data-i="${i}"><button type="button" data-seek="${i}" title="Saltar para: ${esc(p.name)}"><span class="dot">${i + 1}</span><span class="nm">${esc(p.short)}</span><span class="tm">${dayName(p.start)} ${hhmm(p.start)}</span></button></li>`).join('');
+  updateSteps();
+}
+function updateSteps() {
+  const S = focusSite();
+  document.querySelectorAll('#steps li').forEach(li => {
+    const p = S.phases[+li.dataset.i];
+    li.classList.toggle('done', state.t >= p.end);
+    li.classList.toggle('now', state.t >= p.start && state.t < p.end);
+  });
+}
+function seekTo(t) {
+  state.t = t; state.done = false; $('#summary').hidden = true;
+  bubbles.slice().forEach(removeBubble);
+  SITES.forEach(S => { S.chat = { next: 1.5, queue: [], wait: 0, used: new Set() }; S.lastIdx = -2; });
+  state.log = []; ui.logDirty = true;
+  parts.life.fill(0);
+  people.forEach(P => { P.present = false; P.root.visible = false; });
+  SITES.forEach(S => updateFloor(S, state.t));
+  updatePeople(0, true);
+  refreshUI(true);
+}
+
+const helmDot = c => `<span class="helm" style="background:${c.helmet}"></span>`;
+const PPE = {
+  blaster: 'Protetores auditivos · máscara FFP3 · botas S3', grinder: 'Protetores auditivos · máscara FFP3 · joelheiras', vacuum: 'Máscara FFP2 · luvas',
+  roller: 'Luvas de nitrilo · óculos · roupa comprida', squeegee: 'Luvas de nitrilo · óculos', rakel: 'Sapatos de pregos · luvas de nitrilo · óculos',
+  spike: 'Sapatos de pregos · luvas de nitrilo', mixer: 'Óculos fechados · luvas de nitrilo · avental', bucket: 'Luvas de nitrilo · óculos', bucketPour: 'Luvas de nitrilo · óculos',
+  trowel: 'Luvas de nitrilo · joelheiras', sandbucket: 'Máscara FFP2 · luvas', sandbag: 'Máscara FFP2 · sapatos de pregos', meter: 'Luvas', hammer: 'Óculos · luvas', lamp: '—',
+};
+function personRow(c) {
+  const P = people.get(c.id), st = P.state;
+  const status = !P.present ? '<span class="chip">Fora</span>' : st && st.anim === 'idle' ? '<span class="chip warn">Em espera</span>' : '<span class="chip ok">A trabalhar</span>';
+  return `<button class="row" data-person="${c.id}" aria-current="${state.sel === c.id}">${helmDot(c)}<span class="t"><b>${esc(c.name)}</b>${c.chief ? ' <span class="chip acc">Chefe</span>' : ''}<span class="sub">${esc(P.present && st ? st.task : c.langs)}</span></span>${status}</button>`;
+}
+function renderCrew() {
+  const P = people.get(state.sel), c = P.c, st = P.state, S = SITES.find(s => s.id === c.site);
+  const line = P.lastLine;
+  const card = `<div class="who-card">
+    <div class="top-row">${helmDot(c)}<div><h3>${esc(c.name)}</h3><div class="role">${esc(c.role)} · ${esc(S.title)}</div></div></div>
+    <dl class="kv">
+      <dt>Línguas</dt><dd>${esc(c.langs)}</dd>
+      <dt>Agora</dt><dd>${P.present && st ? esc(st.task) : 'Fora da obra (Magazin ou casa)'}</dd>
+      <dt>EPI</dt><dd>${esc((P.present && st && PPE[st.tool]) || 'Capacete · colete · botas S3')}</dd>
+      <dt>Última fala</dt><dd>${line ? `<span class="lang">${line.lang.toUpperCase()}</span> ${esc(line.text)}${line.pt && line.lang !== 'pt' ? `<br><i class="m" style="color:var(--muted)">${esc(line.pt)}</i>` : ''}` : '—'}</dd>
+    </dl>
+    <button class="tool-btn follow" id="follow-btn" aria-pressed="${state.follow}">${state.follow ? 'A seguir na câmara' : 'Seguir na câmara'}</button>
+  </div>`;
+  const group = (sid) => {
+    const S2 = SITES.find(s => s.id === sid), ph = S2.cur;
+    const members = CREW.filter(x => x.site === sid && (!x.guest || people.get(x.id).present));
+    return `<div class="grp"><span>${esc(S2.title)}</span><span>${ph ? esc(ph.short) : 'Sem trabalho agora'}</span></div>${members.map(personRow).join('')}`;
+  };
+  const fleet = vans.map(v => `<div class="li"><span><b>Sprinter ${v.id}</b> · Mercedes-Benz Sprinter, branca<span class="m" style="display:block">${esc(v.use)} · equipa ${esc(v.site === 'A' ? 'Jord' : 'Thomas')}</span></span><span class="chip ${v.status.startsWith('Na obra') ? 'ok' : v.status === 'No Magazin' ? '' : 'warn'}">${esc(v.status)}</span></div>`).join('');
+  $('#tab-crew').innerHTML = `
+    <div class="sec">${card}</div>
+    <div class="sec"><div class="lbl">Equipas · 2 chefes, 5 operários</div><div class="rows">${group('A')}${group('B')}</div></div>
+    <div class="sec"><div class="lbl">Escritório</div><div class="list"><div class="li"><span><b>${OFFICE.name}</b> · ${OFFICE.role}<span class="m" style="display:block">Não vai às obras nem ao Magazin · fala ${OFFICE.langs.toLowerCase()}</span></span><span class="chip">${OFFICE.where}</span></div></div></div>
+    <div class="sec"><div class="lbl">Frota · 4 carrinhas</div><div class="list">${fleet}</div></div>`;
+}
+function renderCtrl() {
+  const S = focusSite(), c = climate(S, state.t), [cls, lab] = dewState(c.m);
+  const rs = S.readings.filter(r => r.t <= state.t);
+  const label = { cm: ['Humidade do suporte (CM)', '%', v => v <= 4, '≤ 4 %'], po: ['Arrancamento (Haftzug)', 'N/mm²', v => v >= 1.5, '≥ 1,5 N/mm²'], dew: ['Margem ao ponto de orvalho', 'K', v => v >= 3, '≥ 3 K'], wft: ['Espessura húmida (pente)', 'mm', v => v >= 1.9, '≈ 2 mm'] };
+  const rows = rs.length ? rs.map(r => { const L = label[r.kind], ok = L[2](r.v); return `<div class="li"><span><b>${L[0]}</b><span class="m" style="display:block">${dayName(r.t)} ${hhmm(r.t)} · ${esc(nameOf(r.who))} · ${esc(r.ph)} · limite ${L[3]}</span></span><span><span class="num">${f1(r.v)} ${L[1]}</span> <span class="chip ${ok ? 'ok' : 'crit'}">${ok ? 'OK' : 'Fora'}</span></span></div>`; }).join('') : '<div class="empty">Ainda sem medições nesta obra.</div>';
+  $('#tab-ctrl').innerHTML = `
+    <div class="sec"><div class="lbl"><span>Clima agora · ${esc(S.short)}</span><span class="chip ${cls}">${lab}</span></div>
+      <div class="cond">
+        <div><div class="lbl">Ar</div><div class="v">${f1(c.air)} °C</div></div>
+        <div><div class="lbl">Humidade relativa</div><div class="v">${f0(c.rh)} %</div></div>
+        <div><div class="lbl">Suporte</div><div class="v">${f1(c.sub)} °C</div></div>
+        <div><div class="lbl">Ponto de orvalho</div><div class="v">${f1(c.td)} °C</div></div>
+        <div class="wide"><span><span class="lbl">Margem</span><div class="v">${f1(c.m)} K</div></span><span class="note" style="max-width:190px">Suporte tem de estar pelo menos 3 K acima do ponto de orvalho.</span></div>
+      </div>
+      ${S.dehum && state.t >= S.climate.dryAt ? '<p class="note">Desumidificador ligado desde segunda 09:00.</p>' : ''}
+    </div>
+    <div class="sec"><div class="lbl">Medições</div><div class="list">${rows}</div></div>
+    <div class="sec"><div class="lbl">Regras das fichas técnicas</div>
+      <ul class="rules"><li>Ar e suporte entre +10 e +30 °C</li><li>Humidade relativa ≤ 80 %</li><li>Suporte ≥ 3 K acima do ponto de orvalho</li><li>Humidade residual ≤ 4 % CM, sem humidade ascendente</li><li>Arrancamento ≥ 1,5 N/mm² · compressão ≥ 25 N/mm²</li><li>Aquecer só com aquecedores elétricos</li></ul>
+    </div>
+    <div class="sec"><div class="lbl">Tempos (aprox.)</div><div class="list">${S.times.map(([a, b]) => `<div class="li"><span>${esc(a)}</span><span class="num" style="text-align:right">${esc(b)}</span></div>`).join('')}</div>
+      <p class="note">Fichas técnicas Sika Suíça (Sikafloor®-160, -150 Plus, -264 Plus; Sikadur®-31+). Confirme sempre na ficha técnica atual.</p></div>`;
+}
+function renderMat() {
+  const S = focusSite();
+  const area = S.N * CELL * CELL;
+  const stack = S.layers.map(l => `<div style="background:${l.col};min-height:${l.h}px"><span>${esc(l.name)}</span><span>${esc(l.mm)}</span></div>`).join('');
+  const prods = S.products.map(p => {
+    const doneCells = S.done[p.bit] || 0, tot = S.totals[p.bit] || 1, kg = doneCells * CELL * CELL * p.rate, plan = tot * CELL * CELL * p.rate;
+    const pct = Math.round(doneCells / tot * 100);
+    return `<div class="li"><span><b>${esc(p.name)}</b><span class="m" style="display:block">${esc(p.use)}${p.mix ? ` · A : B = ${esc(p.mix)}` : ''} · consumo: ${esc(p.pds)}</span></span><span class="num" style="text-align:right">${p.rate ? `${f0(kg)} kg<span class="m" style="display:block">de ~${f0(plan)}${p.est ? ' (estim.)' : ''}</span>` : `${pct}%`}</span><div class="bar"><i style="width:${pct}%"></i></div></div>`;
+  }).join('');
+  $('#tab-mat').innerHTML = `
+    <div class="sec"><div class="lbl"><span>Sistema · ${esc(S.short)}</span><span>${f0(area)} m²</span></div><div class="stack">${stack}</div>
+      <p class="note">${esc(S.system)} · cor ${esc(S.coatName)}.</p></div>
+    <div class="sec"><div class="lbl">Consumo nesta obra</div><div class="list prod">${prods}</div>
+      <p class="note">Consumo = ficha técnica × área já coberta (aprox.; a areia do primário é estimativa). Rácios A : B em peso, da vossa folha «Mischverhältnisse» (out. 2026) e da ficha do Sikadur®-31+.</p></div>`;
+}
+function renderLog() {
+  const items = state.log.filter(e => state.focus === 'all' || e.site === state.focus).slice(0, 50);
+  $('#tab-log').innerHTML = items.length ? `<div class="log">${items.map(e => {
+    const c = e.who && people.get(e.who) ? people.get(e.who).c : null;
+    return `<div class="e"><span class="tm">${dayName(e.t)}<br>${hhmm(e.t)}</span><span><span class="site">${e.site}</span>${c ? `<b>${esc(c.name)}</b> <span class="lang" style="font-family:var(--f-mono);font-size:10px;color:var(--muted)">${e.lang.toUpperCase()}</span> ` : ''}${esc(e.text)}${e.pt && e.lang !== 'pt' ? `<span class="tr">${esc(e.pt)}</span>` : ''}</span></div>`;
+  }).join('')}</div>` : '<div class="empty">As falas, medições e chamadas aparecem aqui.</div>';
+  ui.logDirty = false;
+}
+function refreshKPIs() {
+  const S = focusSite(), ph = S.cur, c = climate(S, state.t), [cls, lab] = dewState(c.m);
+  const next = S.phases.find(p => p.start > state.t);
+  $('#k-phase').textContent = ph ? ph.short : (state.t >= S.end ? 'Entregue' : next ? `Próx.: ${next.short}` : '—');
+  $('#k-phase-bar').style.width = `${Math.round((ph ? S.p : state.t >= S.end ? 1 : 0) * 100)}%`;
+  const op = ph && ph.ops[0];
+  const area = S.N * CELL * CELL;
+  if (op) { const done = (S.done[op.bit] || 0) * CELL * CELL, tot = (S.totals[op.bit] || 1) * CELL * CELL; $('#k-area').innerHTML = `${f0(done)} <small>/ ${f0(tot)} m²</small>`; $('#k-area-s').textContent = `${ph.de} · ${Math.round(done / tot * 100)} %`; }
+  else { $('#k-area').innerHTML = `${f0(area)} <small>m²</small>`; $('#k-area-s').textContent = S.system; }
+  $('#k-dew').innerHTML = `${f1(c.m)} <small>K margem</small>`;
+  $('#k-dew-s').innerHTML = `<span class="chip ${cls}">${lab}</span> ${f1(c.sub)} °C / ${f1(c.td)} °C`;
+  const kg = S.products.reduce((s, p) => s + (S.done[p.bit] || 0) * CELL * CELL * p.rate, 0);
+  $('#k-mat').innerHTML = `${f0(kg)} <small>kg</small>`;
+  $('#k-mat-s').textContent = `${S.short}: resina, areia e quartzo`;
+}
+function refreshUI(full) {
+  $('#clock').textContent = clockStr(state.t);
+  $('#live').classList.toggle('paused', state.speed === 0);
+  const anyWork = SITES.some(S => S.cur && !S.cur.idle);
+  $('#tl').textContent = state.speed === 0 ? 'em pausa' : `timelapse ×${f0((anyWork ? BASE_RATE : GAP_RATE) * state.speed * 60)}`;
+  const S = focusSite(), ph = S.cur, banner = $('#banner');
+  let msg = '';
+  if (!ph || ph.idle) {
+    const next = S.phases.find(p => p.start > state.t && !p.idle);
+    const h = Math.floor(state.t % 1440 / 60), night = h < 6 || h >= 18;
+    if (state.t >= S.end) msg = `${S.short}: obra entregue`;
+    else if (ph && ph.idle) msg = `${ph.name} · ninguém pisa`;
+    else if (next) msg = `${night ? 'Noite' : 'Sem trabalho'} · ${S.short}: próximo ${next.short}, ${dayName(next.start)} ${hhmm(next.start)}`;
+  }
+  banner.hidden = !msg; banner.textContent = msg;
+  refreshKPIs(); updateSteps();
+  if (ui.tab === 'crew') renderCrew();
+  if (ui.tab === 'ctrl') renderCtrl();
+  if (ui.tab === 'mat') renderMat();
+  if (ui.tab === 'log' && (ui.logDirty || full)) renderLog();
+}
+function finish() {
+  if (state.done) return;
+  state.done = true; state.doneAt = performance.now();
+  const col = S => {
+    const kg = S.products.reduce((s, p) => s + (S.totals[p.bit] || 0) * CELL * CELL * p.rate, 0), m2 = S.N * CELL * CELL;
+    const workDays = new Set(S.phases.filter(p => !p.idle).map(p => Math.floor(p.start / 1440))).size;
+    const team = CREW.filter(c => c.site === S.id && !c.guest).map(c => c.name).join(', ');
+    return `<div><b>${esc(S.title)}</b><dl><dt>Área</dt><dd class="num">${f0(m2)} m²</dd><dt>Dias de trabalho</dt><dd class="num">${workDays}</dd><dt>Material</dt><dd class="num">~${f0(kg)} kg</dd><dt>Equipa</dt><dd>${esc(team)}</dd><dt>Entregue</dt><dd>${dayName(S.end)} ${hhmm(S.end)}</dd></dl></div>`;
+  };
+  $('#summary').innerHTML = `<div class="card"><h2>Semana concluída: duas obras entregues</h2><p>2 chefes, 5 operários e 4 Sprinters. Recomeça sozinho daqui a 25 segundos.</p><div class="cols">${col(SITES[0])}${col(SITES[1])}</div><div class="actions"><button class="btn" id="again">Ver outra vez</button><button class="btn ghost" id="close-sum">Ficar a ver as obras</button></div></div>`;
+  $('#summary').hidden = false;
+}
+
+/* ---------- eventos ---------- */
+$('#sites').addEventListener('click', e => { const b = e.target.closest('button[data-site]'); if (b) setFocus(b.dataset.site); });
+$('#speed').addEventListener('click', e => {
+  const b = e.target.closest('button[data-speed]'); if (!b) return;
+  state.speed = +b.dataset.speed;
+  document.querySelectorAll('#speed button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+  refreshUI();
+});
+$('#tabs').addEventListener('click', e => {
+  const b = e.target.closest('button[data-tab]'); if (!b) return;
+  ui.tab = b.dataset.tab;
+  document.querySelectorAll('#tabs button').forEach(x => x.setAttribute('aria-selected', String(x === b)));
+  ['crew', 'ctrl', 'mat', 'log'].forEach(k => { $('#tab-' + k).hidden = k !== ui.tab; });
+  refreshUI(true);
+});
+$('#steps').addEventListener('click', e => { const b = e.target.closest('button[data-seek]'); if (b) seekTo(focusSite().phases[+b.dataset.seek].start - (+b.dataset.seek === 0 ? 20 : 0)); });
+$('#tab-crew').addEventListener('click', e => {
+  const r = e.target.closest('[data-person]');
+  if (r) { selectPerson(r.dataset.person); return; }
+  if (e.target.closest('#follow-btn')) { state.follow = !state.follow; refreshUI(); }
+});
+$('#tr-toggle').addEventListener('click', e => { state.tr = !state.tr; $('#app').classList.toggle('no-tr', !state.tr); e.currentTarget.setAttribute('aria-pressed', String(state.tr)); });
+$('#recenter').addEventListener('click', () => { state.follow = false; flyTo(state.focus); refreshUI(); });
+$('#summary').addEventListener('click', e => {
+  if (e.target.closest('#again')) { seekTo(T0); }
+  if (e.target.closest('#close-sum')) { $('#summary').hidden = true; state.doneAt = Infinity; }
+});
+function selectPerson(id) {
+  state.sel = id;
+  const site = people.get(id).c.site;
+  if (state.focus !== 'all' && state.focus !== site) setFocus(site);
+  if (ui.tab !== 'crew') $('#tabs button[data-tab="crew"]').click(); else refreshUI();
+}
+// tocar num operário
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+let downAt = null;
+canvas.addEventListener('pointerdown', e => { downAt = [e.clientX, e.clientY]; state.follow = state.follow && true; });
+canvas.addEventListener('pointerup', e => {
+  if (!downAt || Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 6) return;
+  const r = canvas.getBoundingClientRect(); ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  ray.setFromCamera(ndc, camera);
+  const hits = ray.intersectObjects([...people.values()].filter(P => P.present).map(P => P.hit), false);
+  if (hits.length) selectPerson(hits[0].object.userData.person);
+});
+controls.addEventListener('start', () => { camGoal.active = false; });
+
+/* ---------- tamanho ---------- */
+function resize() {
+  const w = canvas.clientWidth, h = canvas.clientHeight; if (!w || !h) return;
+  renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(stageEl);
+
+/* ---------- luz do dia ---------- */
+function updateLight() {
+  const h = (state.t % 1440) / 60, day = smooth(5.5, 8, h) * (1 - smooth(18, 20.5, h)), warm = 1 - Math.min(Math.abs(h - 13) / 6, 1);
+  sun.intensity = 0.35 + 1.0 * day; hemi.intensity = 0.16 + 0.24 * day;
+  sun.color.setRGB(1, 0.86 + 0.14 * warm, 0.72 + 0.28 * warm).lerp(new THREE.Color(0x9fb4ff), 1 - day);
+  renderer.toneMappingExposure = 0.72 + 0.36 * day;
+  const f = controls.target, ang = (h - 6) / 12 * Math.PI;
+  sun.position.set(f.x + 30 * Math.cos(ang) + 8, 40 + 10 * Math.sin(ang), f.z + 26);
+  sun.target.position.set(f.x, 0, f.z);
+}
+
+/* ---------- auto-teste mínimo ---------- */
+(() => {
+  const s = serp(0, 0, 10, 6, 2); [0.1, 0.37, 0.8].forEach(q => { const p = s.at(q); console.assert(Math.abs(s.ord(p.x, p.z) - q) < 1e-6, 'serp ord/at', q); });
+  const e = perim(0, 0, 10, 6, 1); [0.05, 0.4, 0.9].forEach(q => { const p = e.at(q); console.assert(Math.abs(e.ord(p.x, p.z) - q) < 0.02, 'perim ord/at', q); });
+  console.assert(Math.abs(dewPoint(20, 50) - 9.26) < 0.1, 'dew point');
+})();
+
+/* ---------- ciclo ---------- */
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.1, (now - last) / 1000); last = now;
+  advance(dt);
+  SITES.forEach(S => { updateFloor(S, state.t); if (S.dirty && now - S.lastUpload > 90) { S.tex.needsUpdate = true; S.rtex.needsUpdate = true; S.dirty = false; S.lastUpload = now; } chatTick(S, dt); });
+  updatePeople(dt, false);
+  if (state.speed > 0) updateParticles(dt);
+  const selP = people.get(state.sel);
+  ring.visible = !!(selP && selP.present); if (ring.visible) ring.position.set(selP.pos.x, 0.03, selP.pos.z);
+  if (camGoal.active) {
+    camGoal.u = Math.min(1, camGoal.u + dt / 1.1); const k = smooth(0, 1, camGoal.u);
+    camera.position.lerpVectors(camGoal.from, camGoal.to, k); controls.target.lerpVectors(camGoal.tf, camGoal.tt, k);
+    if (camGoal.u >= 1) camGoal.active = false;
+  } else if (state.follow && selP && selP.present) {
+    tmpV.set(selP.pos.x, 0, selP.pos.z).sub(controls.target).multiplyScalar(Math.min(1, dt * 3));
+    controls.target.add(tmpV); camera.position.add(tmpV);
+  }
+  controls.update();
+  updateLight();
+  renderer.render(scene, camera);
+  placeBubbles();
+  ui.acc += dt;
+  if (ui.acc > 0.25) { ui.acc = 0; refreshUI(); }
+  if (state.done && now - state.doneAt > 25000) seekTo(T0);
+  requestAnimationFrame(frame);
+}
+
+document.addEventListener('visibilitychange', () => { last = performance.now(); });
+const hash = (location.hash || '').slice(1);
+resize();
+setFocus(hash === 'B' || hash === 'all' ? hash : 'A');
+flyTo(state.focus, true);
+updatePeople(0, true);
+refreshUI(true);
+window.__sim = { state, SITES, people, vans, seekTo, setFocus, renderer, sun, hemi, scene, matCache, bubbles, zoom: () => { controls.target.set(14, 0, 9); camera.position.set(24, 14, 24); camGoal.active = false; } };
+requestAnimationFrame(frame);
+})();
+</script>
